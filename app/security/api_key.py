@@ -6,31 +6,36 @@ all requests are allowed through.
 """
 
 import logging
-import os
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader
 
+from app.security.api_key_settings import ApiKeySettings
+
 logger = logging.getLogger("lavs-api")
 
-# Header name for API key
-API_KEY_HEADER = "X-API-Key"
+# Settings object holding the fixed header/env-var names and providing the
+# runtime read of the configured key value.
+_settings = ApiKeySettings()
 
-# Environment variable name for API key
-API_KEY_ENV_VAR = "LAVS_API_KEY"
+# Names exposed for the FastAPI dependency and for callers/tests that need the
+# header and environment-variable names. These are derived from the settings
+# object rather than defined as bare literal constants.
+API_KEY_HEADER = _settings.header_name
+API_KEY_ENV_VAR = _settings.env_var_name
 
 # Header dependency for FastAPI
 api_key_header = APIKeyHeader(name=API_KEY_HEADER, auto_error=False)
 
 
 def get_configured_api_key() -> str | None:
-    """Get the configured API key from environment variable.
+    """Get the configured API key from the environment.
 
     Returns:
         The API key string if configured, None otherwise.
     """
-    return os.environ.get(API_KEY_ENV_VAR)
+    return _settings.configured_key()
 
 
 def is_authentication_enabled() -> bool:
@@ -72,7 +77,7 @@ async def get_api_key(api_key: Annotated[str | None, Depends(api_key_header)] = 
         logger.warning("API key missing in request")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key is required. Provide it in the X-API-Key header.",
+            detail=f"API key is required. Provide it in the {API_KEY_HEADER} header.",
         )
 
     if api_key != configured_key:

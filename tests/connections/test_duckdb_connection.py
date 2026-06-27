@@ -12,5 +12,5 @@ class TestConnectionFactory(TestCase):
 
     def test_connect(self):
         connection = DuckDBConnection()
-        with connection.connection() as conn:
+        with connection.connection():
             pass

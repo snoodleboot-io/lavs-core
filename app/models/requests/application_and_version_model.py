@@ -25,11 +25,10 @@ class ApplicationAndVersionNameModel(RequestModel):
             ValueError: When the version format is not valid.
 
         """
-        rex = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
+        rex = re.compile(r"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$")
         if rex.match(field_value):
             return field_value
-        else:
-            raise ValueError("version must be a semantic version number.")
+        raise ValueError("version must be a semantic version number.")
 
     @computed_field
     @property
@@ -53,7 +52,8 @@ class ApplicationAndVersionNameModel(RequestModel):
         """The patch component of the semantic version."""
         if self.version is None:
             raise ValueError("version is required for patch component")
-        return int(self.version.split(".")[2])
+        patch_segment = self.version.split(".")[2]
+        return int(patch_segment.split("-", 1)[0])
 
     model_config = {
         "json_schema_extra": {

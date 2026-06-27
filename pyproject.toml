@@ -26,10 +26,11 @@ dev = [
     "pre-commit>=4.0.0",
     "pyright>=1.1.389",
     "build>=1.0.0",
+    "httpx>=0.28.1",
 ]
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py314"
 line-length = 100
 
 [tool.ruff.lint]
@@ -68,7 +69,7 @@ markers = [
 ]
 
 [tool.pyright]
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 include = ["app"]
 exclude = ["tests", "**/__pycache__", ".venv"]
 ignore = [".venv"]

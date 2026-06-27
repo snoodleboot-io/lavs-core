@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.models.requests.application_and_version_model import (
     ApplicationAndVersionNameModel,
@@ -14,8 +14,13 @@ from app.queries.versions.create_version import CreateVersion
 from app.queries.versions.delete_version import DeleteVersion
 from app.queries.versions.retrieve_latest_version import RetrieveLatestVersion
 from app.queries.versions.retrieve_version_history import RetrieveVersionHistory
+from app.security.api_key import get_api_key
 
-router = APIRouter(tags=["versions"], prefix="/versions")
+router = APIRouter(
+    tags=["versions"],
+    prefix="/versions",
+    dependencies=[Depends(get_api_key)],
+)
 
 
 @router.get("/", response_model=list[ApplicationAndVersionResponseModel])

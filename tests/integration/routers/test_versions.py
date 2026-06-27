@@ -3,7 +3,6 @@
 These tests verify the version CRUD operations via the API endpoints.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -16,9 +15,7 @@ class TestVersionsRouter:
         Verifies that creating a version returns the expected response
         with the correct version components.
         """
-        response = client.post(
-            "/versions/?product_name=testapp&version=1.2.3"
-        )
+        response = client.post("/versions/?product_name=testapp&version=1.2.3")
         assert response.status_code == 200
         data = response.json()
         assert data["product_name"] == "testapp"
@@ -56,21 +53,15 @@ class TestVersionsRouter:
         Creates a version, deletes it, and verifies it's no longer accessible.
         """
         # Create a version
-        create_response = client.post(
-            "/versions/?product_name=deletetest&version=1.0.0"
-        )
+        create_response = client.post("/versions/?product_name=deletetest&version=1.0.0")
         assert create_response.status_code == 200
-        created_data = create_response.json()
-        version_id = created_data["id"]
 
         # Verify it exists
         get_response = client.get("/versions/latest?product_name=deletetest")
         assert get_response.status_code == 200
 
         # Delete the version - endpoint returns 200 but doesn't return useful data
-        delete_response = client.delete(
-            f"/versions/?product_name=deletetest&version=1.0.0"
-        )
+        delete_response = client.delete("/versions/?product_name=deletetest&version=1.0.0")
         # Current implementation returns 200 but empty response
         assert delete_response.status_code == 200
 
@@ -80,9 +71,7 @@ class TestVersionsRouter:
         The version must be in semver format (X.Y.Z), so invalid formats
         should return a validation error.
         """
-        response = client.post(
-            "/versions/?product_name=testapp&version=invalid"
-        )
+        response = client.post("/versions/?product_name=testapp&version=invalid")
         assert response.status_code == 422  # Validation error
 
     def test_versions_for_different_products(self, client: TestClient) -> None:
