@@ -1,19 +1,43 @@
-#TODO: This is going to be used to create the database for all of the enginges - have to build the machinery.
-
 database:
-  table:
-    name: Versions
-    fields:
-      - name: major
-        type: INTEGER
-      - name: minor
-        type: INTEGER
-      - name: patch
-        type: INTEGER
-      - name: product_name
-        type: VARCHAR
-      - name: id
-        type: INTEGER PRIMARY KEY
+  tables:
+    - name: products
+      fields:
+        - name: id
+          type: VARCHAR PRIMARY KEY
+        - name: name
+          type: VARCHAR
+        - name: description
+          type: VARCHAR
+        - name: created_at
+          type: TIMESTAMP
+    - name: components
+      fields:
+        - name: id
+          type: VARCHAR PRIMARY KEY
+        - name: product_id
+          type: VARCHAR
+        - name: name
+          type: VARCHAR
+        - name: kind
+          type: VARCHAR
+    - name: versions
+      fields:
+        - name: id
+          type: VARCHAR PRIMARY KEY
+        - name: component_id
+          type: VARCHAR
+        - name: major
+          type: INTEGER
+        - name: minor
+          type: INTEGER
+        - name: patch
+          type: INTEGER
+        - name: prerelease
+          type: VARCHAR
+        - name: status
+          type: VARCHAR
+        - name: created_at
+          type: TIMESTAMP
 
 duck_db:
   database: test.db
