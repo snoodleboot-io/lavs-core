@@ -37,11 +37,16 @@ class CreatePatch(Query):
 
         conn.sql(
             query=(
-                f"INSERT INTO Versions "
-                f"(major, minor, patch, product_name, id) "
-                f"VALUES ({latest_version_result.major}, {latest_version_result.minor}, "
-                f"{latest_version_result.patch + 1}, '{latest_version_result.product_name}', nextval('version_id_seq'))"
-            )
+                "INSERT INTO Versions "
+                "(major, minor, patch, product_name, id) "
+                "VALUES (?, ?, ?, ?, nextval('version_id_seq'))"
+            ),
+            params=(
+                latest_version_result.major,
+                latest_version_result.minor,
+                latest_version_result.patch + 1,
+                latest_version_result.product_name,
+            ),
         )
         new_latest_version: ApplicationAndVersionResponseModel = (
             await self._latest_version_query.execute(data=data)

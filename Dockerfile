@@ -1,18 +1,15 @@
-FROM docker.io/python:3.13-bookworm
+FROM docker.io/python:3.14-slim-bookworm
 
-ENV POETRY_VIRTUALENVS_CREATE=false
-ENV PIPX_BIN_DIR=/usr/local/bin
-ENV PIPX_HOME=/usr/local/share/pipx/venvs
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-RUN pip install pipx && pipx ensurepath && pipx install poetry==2.1
+WORKDIR /app
 
-WORKDIR app
+COPY pyproject.toml uv.lock README.md ./
 COPY app ./app
-COPY poetry.lock .
-COPY pyproject.toml .
-COPY README.md .
 
-RUN ls
-RUN poetry install
+RUN uv sync --frozen --no-dev
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+EXPOSE 8080
+
+# --no-dev keeps the runtime env in sync with the build (no pyright/ruff re-download on cold start)
+CMD ["uv", "run", "--no-dev", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

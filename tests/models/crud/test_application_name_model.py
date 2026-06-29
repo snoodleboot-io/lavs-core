@@ -1,7 +1,6 @@
 from unittest import TestCase
 
 from app.models.requests.application_name_model import ApplicationNameModel
-from app.models.requests.request_model import RequestModel
 
 
 class TestRequestModel(TestCase):

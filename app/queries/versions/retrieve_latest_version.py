@@ -7,18 +7,27 @@ from app.models.responses.application_and_version_response_model import (
 from app.queries.query import Query
 
 
-def _rows_to_dicts(description: list[tuple], rows: list[tuple]) -> list[dict]:
-    """Convert query result rows to list of dictionaries.
+def _row_to_response(
+    description: list[tuple[Any, ...]], row: tuple[Any, ...]
+) -> ApplicationAndVersionResponseModel:
+    """Build a response model from a single query result row.
 
     Args:
         description: Column descriptions from cursor.
-        rows: Result rows from query execution.
+        row: A single result row from query execution.
 
     Returns:
-        List of dictionaries representing the rows.
+        The response model populated from the row's columns.
     """
     columns = [desc[0] for desc in description]
-    return [dict(zip(columns, row, strict=False)) for row in rows]
+    fields = dict(zip(columns, row, strict=False))
+    return ApplicationAndVersionResponseModel(
+        product_name=fields["product_name"],
+        major=fields["major"],
+        minor=fields["minor"],
+        patch=fields["patch"],
+        id=fields["id"],
+    )
 
 
 class RetrieveLatestVersion(Query):
@@ -41,10 +50,14 @@ class RetrieveLatestVersion(Query):
             ApplicationAndVersionResponseModel if found, None otherwise.
         """
         query_result = conn.sql(
-            "SELECT * FROM Versions WHERE product_name = ? ORDER BY major DESC, minor DESC, patch DESC LIMIT 1",
-            params=(data.product_name,),
+            "SELECT * FROM Versions "
+            "WHERE product_name = ? "
+            "AND status = ? "
+            "ORDER BY major DESC, minor DESC, patch DESC "
+            "LIMIT 1",
+            params=(data.product_name, "active"),
         )
-        result = _rows_to_dicts(query_result.description, query_result.fetchall())
-        if len(result) > 0:
-            return ApplicationAndVersionResponseModel(**result[0])
+        rows = query_result.fetchall()
+        if len(rows) > 0:
+            return _row_to_response(query_result.description, rows[0])
         return None

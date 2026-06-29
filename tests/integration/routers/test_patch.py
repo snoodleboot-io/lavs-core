@@ -3,7 +3,6 @@
 These tests verify the patch version operations via the API endpoints.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -17,9 +16,7 @@ class TestPatchRouter:
         the patch number.
         """
         # First create a base version
-        create_response = client.post(
-            "/versions/?product_name=patchtest&version=1.0.0"
-        )
+        create_response = client.post("/versions/?product_name=patchtest&version=1.0.0")
         assert create_response.status_code == 200
 
         # Create a patch (should increment patch from 0 to 1)

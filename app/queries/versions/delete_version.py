@@ -23,13 +23,7 @@ class DeleteVersion(Query):
             conn: Live database connection.
         """
         _ = conn.sql(
-            query=(
-                "DELETE FROM Versions "
-                "WHERE product_name=? "
-                "AND major=? "
-                "AND minor=? "
-                "AND patch=?"
-            ),
+            query=("DELETE FROM Versions WHERE product_name=? AND major=? AND minor=? AND patch=?"),
             params=(data.product_name, data.major, data.minor, data.patch),
         )
 

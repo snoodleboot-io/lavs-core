@@ -96,7 +96,7 @@ def get_duckdb_database_name() -> str:
     try:
         config = load_database_config()
         return config.duck_db.database
-    except (FileNotFoundError, AttributeError):
+    except FileNotFoundError, AttributeError:
         return "test.db"
 
 

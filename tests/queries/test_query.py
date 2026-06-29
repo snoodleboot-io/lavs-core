@@ -1,4 +1,4 @@
-from unittest import TestCase, IsolatedAsyncioTestCase
+from unittest import IsolatedAsyncioTestCase
 
 from app.models.requests.request_model import RequestModel
 from app.queries.query import Query

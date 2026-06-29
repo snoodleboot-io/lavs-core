@@ -76,9 +76,8 @@ class ConnectionFactory:
         Yields:
             The raw database connection object.
         """
-        with self.retrieve(key) as connection:
-            with connection.connection() as conn:
-                yield conn
+        with self.retrieve(key) as conn:
+            yield conn
 
 
 # Module-level factory instance for backwards compatibility

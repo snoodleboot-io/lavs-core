@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.models.requests.application_name_model import ApplicationNameModel
 from app.models.responses.application_and_version_response_model import (
@@ -12,8 +12,13 @@ from app.queries.patch_version.read_current_patch import ReadCurrentPatch
 from app.queries.patch_version.rollback_to_previous_patch_version import (
     RollbackToPreviousPatchVersion,
 )
+from app.security.api_key import get_api_key
 
-router = APIRouter(tags=["patch"], prefix="/patch")
+router = APIRouter(
+    tags=["patch"],
+    prefix="/patch",
+    dependencies=[Depends(get_api_key)],
+)
 
 
 @router.post("/", response_model=ApplicationAndVersionResponseModel)

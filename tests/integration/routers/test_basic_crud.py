@@ -3,7 +3,6 @@
 These tests verify the CRUD operations via the API endpoints.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -29,15 +28,11 @@ class TestBasicCrudRouter:
         they are returned by the read_all endpoint.
         """
         # Create a version
-        create_response = client.post(
-            "/versions/?product_name=crudtest&version=1.0.0"
-        )
+        create_response = client.post("/versions/?product_name=crudtest&version=1.0.0")
         assert create_response.status_code == 200
 
         # Create another version
-        create_response2 = client.post(
-            "/versions/?product_name=crudtest&version=2.0.0"
-        )
+        create_response2 = client.post("/versions/?product_name=crudtest&version=2.0.0")
         assert create_response2.status_code == 200
 
         # Read all versions

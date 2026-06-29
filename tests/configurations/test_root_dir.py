@@ -19,7 +19,7 @@ class TestRoot(TestCase):
                 result.replace(os.path.dirname(os.path.dirname(result)), ""),
                 r"\lavs\app",
             )
-        except:
+        except Exception:
             self.assertEqual(
                 result.replace(os.path.dirname(os.path.dirname(result)), ""),
                 r"/lavs/app",
