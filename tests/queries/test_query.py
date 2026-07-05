@@ -5,13 +5,13 @@ from app.queries.query import Query
 
 
 class TestQuery(IsolatedAsyncioTestCase):
-    def setUp(self):
-        pass
+    """Behavior of the generic ``Query`` base class."""
 
-    def tearDown(self):
-        pass
+    async def test_execute_raises_not_implemented(self) -> None:
+        """The base ``Query`` has no ``apply`` and surfaces ``NotImplementedError``."""
+        # Arrange
+        query: Query[RequestModel] = Query()
 
-    async def test_execute(self):
-        query = Query()
+        # Act / Assert
         with self.assertRaises(NotImplementedError):
-            await query.execute(data=RequestModel(product_name="test"))
+            await query.execute(data=RequestModel())

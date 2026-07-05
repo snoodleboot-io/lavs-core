@@ -7,19 +7,18 @@ import duckdb
 from app.configurations.configuration import Configuration
 from app.connections.connection_factory import ConnectionFactory
 from app.models.requests.request_model import RequestModel
-from app.models.responses.application_and_version_response_model import (
-    ApplicationAndVersionResponseModel,
-)
-from app.models.responses.patch_response_model import PatchResponseModel
 
 
-class Query[
-    T: (
-        ApplicationAndVersionResponseModel,
-        PatchResponseModel,
-        list[ApplicationAndVersionResponseModel],
-    )
-]:
+class Query[T]:
+    """Generic, connection-aware query executor.
+
+    ``T`` is left unbounded so every resource lane (products, components,
+    versions, the composite timeline, and ``list[...]`` of those response
+    models) can specialise :class:`Query` without widening a constraint set on
+    every new model. Subclasses implement :meth:`apply` and return a value of
+    type ``T``.
+    """
+
     def __init__(self):
         self._logger = getLogger(Configuration().application_name)
 
@@ -43,10 +42,10 @@ class Query[
         """
         try:
             if connection is not None:
-                result = await self.apply(data, connection)  # type: ignore[arg-type]
+                result = await self.apply(data, connection)
             else:
                 with ConnectionFactory().retrieve(key="duckdb") as conn:
-                    result = await self.apply(data, conn)  # type: ignore[arg-type]
+                    result = await self.apply(data, conn)
         except Exception:
             self._logger.error(traceback.format_exc())
             raise

@@ -14,6 +14,31 @@ class DatabaseManager:
     lives in ``duckdb/ddl.sql``. No table name is hardcoded here.
     """
 
+    #: The relational root table, exposed so callers can probe migration state
+    #: without re-deriving the name. Kept as a named constant rather than a bare
+    #: literal at the call site.
+    PRODUCTS_TABLE = "products"
+
+    @classmethod
+    def _ddl_text(cls) -> str:
+        """Return the contents of the DuckDB DDL script."""
+        ddl_path = os.path.join(os.path.dirname(__file__), "duckdb/ddl.sql")
+        with open(ddl_path, encoding="utf-8") as stream:
+            return stream.read()
+
+    @classmethod
+    def create_tables_on(cls, conn) -> None:
+        """Run ``ddl.sql`` against an already-open connection.
+
+        Used by the startup migration, which must create tables on the managed
+        connection rather than opening a second connection to the same DuckDB
+        file (DuckDB permits only one writer).
+
+        Args:
+            conn: A live DuckDB connection to run the DDL on.
+        """
+        conn.execute(query=cls._ddl_text())
+
     @classmethod
     def _table_names(cls) -> list[str]:
         """Return the configured table names from ``database.yaml``."""
@@ -40,11 +65,8 @@ class DatabaseManager:
         Raises:
             AssertionError: When a configured table is missing after init.
         """
-        ddl_path = os.path.join(os.path.dirname(__file__), "duckdb/ddl.sql")
         with ConnectionFactory().retrieve(key="duckdb") as conn:
-            with open(ddl_path, encoding="utf-8") as stream:
-                query = stream.read()
-            conn.execute(query=query)
+            conn.execute(query=cls._ddl_text())
 
             existing = cls._existing_tables(conn)
             for table_name in cls._table_names():
