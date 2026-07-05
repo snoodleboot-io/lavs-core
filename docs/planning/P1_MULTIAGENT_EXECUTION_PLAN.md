@@ -1,6 +1,14 @@
 # P1 Domain Model — Multiagent Parallel Execution Plan
 
-> **Status:** ▶ **EXECUTING (2026-06-29).** Env-setup gate green (py3.14.4, ruff/pyright clean,
+> **Status:** ✅ **P1 COMPLETE & GREEN (2026-07-05).** All exit criteria met — register product →
+> components → immutable versions via JSON bodies; full history retained & queryable; rollback marks
+> status (never deletes); config-driven schema init; ULID ids; uniform error envelope. Foundation (A+B)
+> + 4 resource lanes (R1/R2/R3+R4/R5) + ATDD merged onto `feat/15-p1-domain-model`; **166 tests pass**,
+> ruff/format/pyright clean, all 9 endpoints live, security (zero data-value string-SQL, auth on all
+> routers) + enforcement gates pass. Committed on `feat/15-p1-domain-model` (not pushed; no PR yet).
+> Next phase: P2 Release integration (#16).
+>
+> **Original plan (2026-06-29):** Env-setup gate green (py3.14.4, ruff/pyright clean,
 > 90 baseline tests pass, `python-ulid==3.1.0` added). Branch `feat/15-p1-domain-model` cut from
 > `main`. Epic **#15**. Predecessor: P0 (#14) merged.
 > **Author:** orchestrator (harness) · **Persona model:** see CLAUDE.md agent registry.
