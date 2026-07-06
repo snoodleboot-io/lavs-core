@@ -10,7 +10,8 @@ from app.connections.connection_factory import ConnectionFactory
 from app.database.database_manager import DatabaseManager
 from app.database.migration.flat_to_relational_migration import FlatToRelationalMigration
 from app.errors.handlers import register_error_handlers
-from app.routers import components, products, timeline, versions
+from app.events.event_bus import EventBus
+from app.routers import components, events, products, releases, timeline, versions
 
 logger = logging.getLogger("lavs-api")
 
@@ -24,13 +25,15 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     idempotent flat-to-relational migration before serving traffic. The live
     connection is exposed on ``application.state.db_connection`` so request
     handlers and dependencies can reuse it, and is closed automatically at
-    shutdown.
+    shutdown. A single in-process :class:`EventBus` is created and exposed on
+    ``application.state.event_bus`` for the SSE and cut-release lanes to share.
     """
     with ConnectionFactory().connect(key="duckdb") as raw_connection:
         if not isinstance(raw_connection, duckdb.DuckDBPyConnection):
             raise TypeError("The duckdb backend must yield a DuckDBPyConnection.")
         connection = raw_connection
         application.state.db_connection = connection
+        application.state.event_bus = EventBus()
         logger.info("Managed DuckDB connection opened for application lifespan.")
         DatabaseManager.create_tables()
         FlatToRelationalMigration().run(connection)
@@ -39,6 +42,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             yield
         finally:
             application.state.db_connection = None
+            application.state.event_bus = None
             logger.info("Managed DuckDB connection closed for application lifespan.")
 
 
@@ -94,6 +98,8 @@ app.include_router(products.router)
 app.include_router(components.router)
 app.include_router(versions.router)
 app.include_router(timeline.router)
+app.include_router(releases.router)
+app.include_router(events.router)
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="localhost", port=8001)

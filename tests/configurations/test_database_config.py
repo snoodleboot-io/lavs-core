@@ -4,13 +4,40 @@ from app.configurations.configuration import load_database_config
 
 
 def test_database_config_lists_core_tables() -> None:
-    """database.yaml must declare the products, components and versions tables."""
+    """database.yaml must declare every table, parents before children."""
     # Act
     config = load_database_config()
     names = [table.name for table in config.database.tables]
 
     # Assert
-    assert names == ["products", "components", "versions"]
+    assert names == [
+        "products",
+        "components",
+        "versions",
+        "releases",
+        "release_components",
+    ]
+
+
+def test_products_table_declares_base_version_field() -> None:
+    """The products table manifest must include the base_version field."""
+    # Act
+    config = load_database_config()
+    products = next(t for t in config.database.tables if t.name == "products")
+    field_names = {field.name for field in products.fields}
+
+    # Assert
+    assert "base_version" in field_names
+
+
+def test_release_components_follows_releases() -> None:
+    """release_components must be declared after releases so drops honour the FK."""
+    # Act
+    config = load_database_config()
+    names = [table.name for table in config.database.tables]
+
+    # Assert
+    assert names.index("releases") < names.index("release_components")
 
 
 def test_versions_table_declares_status_field() -> None:

@@ -47,7 +47,7 @@ class CreateProductQuery(Query[ProductResponseModel]):
         )
 
         row = conn.execute(
-            "SELECT id, name, description, created_at FROM products WHERE id = ?",
+            "SELECT id, name, description, base_version, created_at FROM products WHERE id = ?",
             [product_id],
         ).fetchone()
         if row is None:
