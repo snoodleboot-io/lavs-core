@@ -29,9 +29,15 @@ class TableDefinition(BaseModel):
 
 
 class DatabaseTableConfig(BaseModel):
-    """Configuration for database tables."""
+    """Configuration for database tables.
 
-    table: TableDefinition
+    Holds the manifest of tables the database is expected to provide. The
+    ``ddl.sql`` script owns the concrete column definitions; this manifest lists
+    the table names (and their fields, for documentation) so initialisation can
+    be driven by configuration rather than hardcoded table names.
+    """
+
+    tables: list[TableDefinition]
 
 
 class DuckDBConfig(BaseModel):

@@ -7,23 +7,34 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 
 from app.connections.connection_factory import ConnectionFactory
-from app.routers import basic_crud, patch, versions
+from app.database.database_manager import DatabaseManager
+from app.database.migration.flat_to_relational_migration import FlatToRelationalMigration
+from app.errors.handlers import register_error_handlers
+from app.routers import components, products, timeline, versions
 
 logger = logging.getLogger("lavs-api")
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-    """Manage a single DuckDB connection for the application lifetime.
+    """Manage a single DuckDB connection and initialise the schema.
 
-    Opens one managed DuckDB connection at startup via the connection
-    factory context manager and closes it automatically at shutdown. The
-    live connection is exposed on ``application.state.db_connection`` so
-    request handlers and dependencies can reuse it.
+    On startup this opens one managed DuckDB connection via the connection
+    factory, ensures the configured tables exist (idempotent), and runs the
+    idempotent flat-to-relational migration before serving traffic. The live
+    connection is exposed on ``application.state.db_connection`` so request
+    handlers and dependencies can reuse it, and is closed automatically at
+    shutdown.
     """
-    with ConnectionFactory().connect(key="duckdb") as connection:
+    with ConnectionFactory().connect(key="duckdb") as raw_connection:
+        if not isinstance(raw_connection, duckdb.DuckDBPyConnection):
+            raise TypeError("The duckdb backend must yield a DuckDBPyConnection.")
+        connection = raw_connection
         application.state.db_connection = connection
         logger.info("Managed DuckDB connection opened for application lifespan.")
+        DatabaseManager.create_tables()
+        FlatToRelationalMigration().run(connection)
+        logger.info("Schema initialised and migration applied.")
         try:
             yield
         finally:
@@ -32,19 +43,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(lifespan=lifespan)
-
-
-def get_db_connection(request: Request) -> duckdb.DuckDBPyConnection:
-    """Return the application-managed DuckDB connection.
-
-    Args:
-        request: The incoming request, used to reach ``app.state``.
-
-    Returns:
-        The live DuckDB connection managed by the application lifespan.
-    """
-    connection: duckdb.DuckDBPyConnection = request.app.state.db_connection
-    return connection
+register_error_handlers(app)
 
 
 @app.get("/")
@@ -91,9 +90,10 @@ def ready(response: Response, request: Request) -> dict[str, str]:
     return {"status": "ready"}
 
 
-app.include_router(patch.router)
-app.include_router(basic_crud.router)
+app.include_router(products.router)
+app.include_router(components.router)
 app.include_router(versions.router)
+app.include_router(timeline.router)
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="localhost", port=8001)

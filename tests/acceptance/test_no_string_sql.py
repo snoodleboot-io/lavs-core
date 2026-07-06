@@ -5,9 +5,8 @@ ROADMAP P0 acceptance: "no string-interpolated SQL anywhere". Guiding principle:
 
 This static guard scans every module under ``app/queries`` and fails if any SQL-looking
 string is built via an f-string (``ast.JoinedStr`` with interpolated fields) or via
-``str.format``. The known offender is
-``app/queries/patch_version/create_patch.py`` (f-string ``INSERT``); it is expected to
-be RED until the P0 SQL-parameterization lane lands.
+``str.format``. The legacy f-string ``INSERT`` offender has been removed with the legacy
+query packages, so this guard is expected to be GREEN.
 
 The scan is intentionally narrow: it only flags interpolated string LITERALS whose
 text contains a SQL keyword, and ``.format(...)`` calls on string literals containing a

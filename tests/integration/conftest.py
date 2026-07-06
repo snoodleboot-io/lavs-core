@@ -12,6 +12,9 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
+# ``duckdb`` is no longer imported directly: schema setup goes through the
+# config-driven ``DatabaseManager`` so tests exercise the real init path.
+
 
 @pytest.fixture(scope="function")
 def test_db():
@@ -34,26 +37,10 @@ def test_db():
     test_db_path = os.path.join(temp_dir, f"test_{uuid.uuid4().hex[:8]}.db")
 
     try:
-        # Import duckdb here to create the database
-        import duckdb
-
-        # Create the database file and tables
-        conn = duckdb.connect(test_db_path)
-        ddl_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "app",
-            "database",
-            "duckdb",
-            "ddl.sql",
-        )
-        with open(ddl_path) as stream:
-            query = "".join(stream.readlines())
-        conn.execute(query=query)
-        conn.close()
-
         # Patch the configuration at multiple levels to ensure isolation
         import app.configurations.configuration as config_module
         from app.connections import connection_factory
+        from app.database.database_manager import DatabaseManager
 
         # Store original functions
         original_get_database_path = config_module.get_database_path
@@ -74,8 +61,18 @@ def test_db():
         # Clear any cached configuration
         config_module.load_database_config.cache_clear()
 
+        # Initialise the schema through the real, config-driven init path so the
+        # tests exercise the same machinery the application uses.
+        DatabaseManager.create_tables()
+
         yield test_db_path
     finally:
+        # Tear the schema down through the same config-driven path.
+        try:
+            DatabaseManager.drop_tables()
+        except Exception:
+            pass
+
         # Restore original functions
         config_module.get_database_path = original_get_database_path
         config_module.get_duckdb_database_name = original_get_duckdb_database_name
