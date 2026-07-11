@@ -62,3 +62,21 @@ or lane-vs-server contention occurs during the fan-out.
 
 ## Readiness signal
 `P2_ENV_READY=GREEN` — all health checks pass at their appropriate points; resource lanes unblocked.
+
+---
+
+# P4 Environment Manifest — 2026-07-11, branch `feat/18-p4-auth-oss`. **Gate: GREEN.**
+
+| # | Service | Status | Verify |
+|---|---|---|---|
+| E1 | Python 3.14 / uv | ✅ 3.14.4 | `import app.main`; `from argon2 import PasswordHasher` |
+| E2 | DuckDB | ✅ | `users`/`sessions`/`email_verification_tokens` present after boot (post-foundation) |
+| E3 | Uvicorn `:8001` | ✅ boots | down during pytest (single-writer protocol) |
+| E4 | pyright | ✅ 0 err | one-shot |
+| E5 | ruff | ✅ clean | — |
+| E6 | pytest | ✅ 257 | baseline |
+| E7 | In-process capture Mailer | ⏸ deferred | foundation code; verified at integration (a verification token is retrievable from the sink) |
+| E8 | Docker | ✅ 29.1.3 | verify-only |
+
+New dep (flagged): **`argon2-cffi` 25.1.0** (argon2id password hashing) → runtime dependency.
+Readiness: `P4_ENV_READY=GREEN`.
