@@ -7,6 +7,10 @@ from app.models.responses.component_with_versions_response_model import (
     ComponentWithVersionsResponseModel,
 )
 from app.models.responses.product_response_model import ProductResponseModel
+from app.models.responses.release_component_response_model import (
+    ReleaseComponentResponseModel,
+)
+from app.models.responses.release_response_model import ReleaseResponseModel
 from app.models.responses.timeline_response_model import TimelineResponseModel
 from app.models.responses.version_response_model import VersionResponseModel
 
@@ -32,12 +36,55 @@ def test_product_response_model_round_trips() -> None:
         id="01KW8WHA6STWW5N1VYRSHDTK1N",
         name="Aurora Platform",
         description=None,
+        base_version="1.2.0",
         created_at="2026-06-29T12:00:00Z",
     )
 
     # Assert
     assert model.description is None
     assert model.name == "Aurora Platform"
+    assert model.base_version == "1.2.0"
+
+
+def test_product_response_model_defaults_base_version() -> None:
+    """ProductResponseModel base_version defaults to the zero version."""
+    # Act
+    model = ProductResponseModel(
+        id="01KW8WHA6STWW5N1VYRSHDTK1N",
+        name="Aurora Platform",
+        description=None,
+        created_at="2026-06-29T12:00:00Z",
+    )
+
+    # Assert
+    assert model.base_version == "0.0.0"
+
+
+def test_release_response_model_nests_frozen_manifest() -> None:
+    """ReleaseResponseModel must nest its frozen component manifest."""
+    # Arrange
+    component = ReleaseComponentResponseModel(
+        component_id="01KW8WHA6STWW5N1VYRSHDTK1Q",
+        name="lavs-api",
+        version_id="01KW8WHA6STWW5N1VYRSHDTK1R",
+        version="2.4.0",
+    )
+
+    # Act
+    release = ReleaseResponseModel(
+        id="01KW8WHA6STWW5N1VYRSHDTK1N",
+        product_id="01KW8WHA6STWW5N1VYRSHDTK1P",
+        product_version="5.1.0",
+        label="Aurora 5.1",
+        notes=None,
+        created_at="2026-06-29T12:00:00Z",
+        components=[component],
+    )
+
+    # Assert
+    assert release.product_version == "5.1.0"
+    assert release.components[0].version == "2.4.0"
+    assert release.notes is None
 
 
 def test_component_response_model_holds_kind_enum() -> None:

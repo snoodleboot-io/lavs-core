@@ -8,6 +8,8 @@ database:
           type: VARCHAR
         - name: description
           type: VARCHAR
+        - name: base_version
+          type: VARCHAR
         - name: created_at
           type: TIMESTAMP
     - name: components
@@ -38,6 +40,30 @@ database:
           type: VARCHAR
         - name: created_at
           type: TIMESTAMP
+    - name: releases
+      fields:
+        - name: id
+          type: VARCHAR PRIMARY KEY
+        - name: product_id
+          type: VARCHAR
+        - name: product_version
+          type: VARCHAR
+        - name: label
+          type: VARCHAR
+        - name: notes
+          type: VARCHAR
+        - name: idempotency_key
+          type: VARCHAR
+        - name: created_at
+          type: TIMESTAMP
+    - name: release_components
+      fields:
+        - name: release_id
+          type: VARCHAR
+        - name: component_id
+          type: VARCHAR
+        - name: version_id
+          type: VARCHAR
 
 duck_db:
   database: test.db

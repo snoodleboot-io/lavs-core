@@ -24,6 +24,7 @@ class ListProductsQuery(Query[list[ProductResponseModel]]):
             The full list of products; empty when none exist.
         """
         rows = conn.execute(
-            "SELECT id, name, description, created_at FROM products ORDER BY created_at, id"
+            "SELECT id, name, description, base_version, created_at FROM products "
+            "ORDER BY created_at, id"
         ).fetchall()
         return [ProductResponseMapper.to_model(row) for row in rows]

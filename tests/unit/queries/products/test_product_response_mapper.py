@@ -16,6 +16,7 @@ class TestProductResponseMapper(TestCase):
             "01AAAAAAAAAAAAAAAAAAAAAAAA",
             "Aurora",
             "Flagship",
+            "1.2.0",
             datetime(2026, 6, 29, 12, 0, 0),
         )
 
@@ -26,12 +27,13 @@ class TestProductResponseMapper(TestCase):
         assert model.id == "01AAAAAAAAAAAAAAAAAAAAAAAA"
         assert model.name == "Aurora"
         assert model.description == "Flagship"
+        assert model.base_version == "1.2.0"
         assert model.created_at == "2026-06-29T12:00:00"
 
     def test_maps_null_description_to_none(self) -> None:
         """A ``None`` description is preserved as ``None``."""
         # Arrange
-        row = ("01AAAAAAAAAAAAAAAAAAAAAAAA", "Aurora", None, datetime(2026, 6, 29))
+        row = ("01AAAAAAAAAAAAAAAAAAAAAAAA", "Aurora", None, "0.0.0", datetime(2026, 6, 29))
 
         # Act
         model = ProductResponseMapper.to_model(row)

@@ -34,3 +34,31 @@ all of this — no manual steps required. **Gate status: GREEN.**
 kill $(pgrep -f 'uvicorn app.main:app')   # E3 server + reloader
 # E1/E2/E5/E6/E7 are on-demand or system-managed; nothing else to stop.
 ```
+
+---
+
+# P2 Environment Manifest (live) — 2026-07-11, branch `feat/16-p2-release-integration`
+
+Stood up by the env-setup gate for the P2 resource wave. **Gate status: GREEN.**
+
+| # | Service / process | Status | Verify (health check) | Notes |
+|---|---|---|---|---|
+| E1 | Python 3.14 / uv | ✅ 3.14.4 | `uv run python -V`; `import app.main` OK | — |
+| E2 | DuckDB (embedded) | ✅ | `releases`+`release_components` present after boot; `GET /ready`→200 | — |
+| E3 | Uvicorn `:8001 --reload` | ✅ boots (health/ready 200) | `curl :8001/health`→200 | **kept DOWN during pytest** (see protocol) |
+| E4 | pyright (strict) | ✅ 0 errors | `uv run pyright` | one-shot at each checkpoint; `-w` available |
+| E5 | ruff | ✅ clean | `uv run ruff check app tests` | one-shot at each checkpoint |
+| E6 | pytest + cov | ✅ 194 passed | `uv run pytest -q` | baseline (server down) |
+| E7 | SSE live smoke | ⏸ deferred | `curl -N :8001/products/{id}/events` | endpoint is a shell pre-R3; smoked at integration gate after R3 lands |
+| E8 | Docker | ✅ 29.1.3 | `docker version` | verify-only (P2 doesn't change image) |
+
+## DuckDB single-writer protocol (Gap G4 reconciliation)
+DuckDB holds an exclusive lock on its file. The live E3 server and the `pytest` suite both target the
+configured `test.db`, so they **cannot run simultaneously** (running both yields ~6 DB-lock failures).
+Protocol: **E3 is verified boot-healthy, then kept down while automated `pytest` runs own the DB file;
+E3 is brought up fresh (isolated run) only for the live E2E + SSE observation at the integration gate.**
+Each parallel resource lane self-verifies inside its own git worktree (own `test.db`), so no cross-lane
+or lane-vs-server contention occurs during the fan-out.
+
+## Readiness signal
+`P2_ENV_READY=GREEN` — all health checks pass at their appropriate points; resource lanes unblocked.

@@ -32,7 +32,7 @@ class GetProductByIdQuery(Query[ProductResponseModel]):
             NotFoundError: When no product carries the requested id.
         """
         row = conn.execute(
-            "SELECT id, name, description, created_at FROM products WHERE id = ?",
+            "SELECT id, name, description, base_version, created_at FROM products WHERE id = ?",
             [data.product_id],
         ).fetchone()
         if row is None:

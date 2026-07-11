@@ -12,7 +12,13 @@ import app.configurations.configuration as config_module
 from app.connections.connection_factory import ConnectionFactory
 from app.database.database_manager import DatabaseManager
 
-EXPECTED_TABLES = ["products", "components", "versions"]
+EXPECTED_TABLES = [
+    "products",
+    "components",
+    "versions",
+    "releases",
+    "release_components",
+]
 
 
 @pytest.fixture()
