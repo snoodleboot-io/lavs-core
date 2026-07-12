@@ -11,11 +11,11 @@ module fills in the two lifecycle endpoints:
 
 from typing import Annotated
 
-import duckdb
 from fastapi import APIRouter, Depends
 
 from app.auth.require_principal import require_principal
 from app.connections.db_dependency import get_db_connection
+from app.connections.db_session import DbSession
 from app.events.event_bus import EventBus
 from app.events.event_bus_dependency import get_event_bus
 from app.models.requests.create_version_model import CreateVersionModel
@@ -30,7 +30,7 @@ router = APIRouter(
     dependencies=[Depends(require_principal)],
 )
 
-DbConnection = Annotated[duckdb.DuckDBPyConnection, Depends(get_db_connection)]
+DbConnection = Annotated[DbSession, Depends(get_db_connection)]
 Bus = Annotated[EventBus, Depends(get_event_bus)]
 
 

@@ -6,8 +6,7 @@ identical join across ``release_components`` → ``components`` (for the name) a
 the two queries stay thin and the manifest shape is built in exactly one place.
 """
 
-import duckdb
-
+from app.connections.db_session import DbSession
 from app.models.responses.release_component_response_model import (
     ReleaseComponentResponseModel,
 )
@@ -36,7 +35,7 @@ class ReleaseManifestReader:
     """
 
     def read(
-        self, conn: duckdb.DuckDBPyConnection, release_ids: list[str]
+        self, conn: DbSession, release_ids: list[str]
     ) -> dict[str, list[ReleaseComponentResponseModel]]:
         """Fetch the frozen manifests for the given releases.
 

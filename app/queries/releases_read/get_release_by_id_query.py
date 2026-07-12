@@ -1,7 +1,6 @@
 """Query that fetches a single release with its frozen manifest."""
 
-import duckdb
-
+from app.connections.db_session import DbSession
 from app.errors.not_found_error import NotFoundError
 from app.models.responses.release_response_model import ReleaseResponseModel
 from app.queries.query import Query
@@ -21,9 +20,7 @@ class GetReleaseByIdQuery(Query[ReleaseResponseModel]):
     the same join the ledger uses. Strictly read-only.
     """
 
-    async def apply(
-        self, data: ReleaseIdRequest, conn: duckdb.DuckDBPyConnection
-    ) -> ReleaseResponseModel:
+    async def apply(self, data: ReleaseIdRequest, conn: DbSession) -> ReleaseResponseModel:
         """Fetch the release identified by ``data.release_id``.
 
         Args:

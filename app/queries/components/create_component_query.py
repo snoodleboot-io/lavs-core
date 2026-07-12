@@ -1,7 +1,6 @@
 """Query that inserts a new component and returns its response representation."""
 
-import duckdb
-
+from app.connections.db_session import DbSession
 from app.errors.not_found_error import NotFoundError
 from app.models.requests.create_component_model import CreateComponentModel
 from app.models.responses.component_response_model import ComponentResponseModel
@@ -21,9 +20,7 @@ class CreateComponentQuery(Query[ComponentResponseModel]):
     inserted with a fully parameterized statement.
     """
 
-    async def apply(
-        self, data: CreateComponentModel, conn: duckdb.DuckDBPyConnection
-    ) -> ComponentResponseModel:
+    async def apply(self, data: CreateComponentModel, conn: DbSession) -> ComponentResponseModel:
         """Insert the component and return its response model.
 
         Args:

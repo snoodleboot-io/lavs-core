@@ -1,7 +1,6 @@
 """Query that fetches a single product by its ULID identifier."""
 
-import duckdb
-
+from app.connections.db_session import DbSession
 from app.errors.not_found_error import NotFoundError
 from app.models.responses.product_response_model import ProductResponseModel
 from app.queries.products.product_id_request import ProductIdRequest
@@ -16,9 +15,7 @@ class GetProductByIdQuery(Query[ProductResponseModel]):
     its components are listed, so a missing product yields HTTP 404 uniformly.
     """
 
-    async def apply(
-        self, data: ProductIdRequest, conn: duckdb.DuckDBPyConnection
-    ) -> ProductResponseModel:
+    async def apply(self, data: ProductIdRequest, conn: DbSession) -> ProductResponseModel:
         """Fetch the product identified by ``data.product_id``.
 
         Args:

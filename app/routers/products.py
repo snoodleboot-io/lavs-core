@@ -9,11 +9,11 @@ and reuses the application-managed DuckDB connection.
 
 from typing import Annotated
 
-import duckdb
 from fastapi import APIRouter, Depends, status
 
 from app.auth.require_principal import require_principal
 from app.connections.db_dependency import get_db_connection
+from app.connections.db_session import DbSession
 from app.models.requests.create_product_model import CreateProductModel
 from app.models.requests.request_model import RequestModel
 from app.models.responses.component_response_model import ComponentResponseModel
@@ -32,7 +32,7 @@ router = APIRouter(
     dependencies=[Depends(require_principal)],
 )
 
-DbConnection = Annotated[duckdb.DuckDBPyConnection, Depends(get_db_connection)]
+DbConnection = Annotated[DbSession, Depends(get_db_connection)]
 
 
 @router.get("", response_model=list[ProductResponseModel])

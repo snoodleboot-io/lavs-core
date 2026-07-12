@@ -7,11 +7,11 @@ mandatory authenticated-principal dependency so auth is enforced uniformly.
 
 from typing import Annotated
 
-import duckdb
 from fastapi import APIRouter, Depends
 
 from app.auth.require_principal import require_principal
 from app.connections.db_dependency import get_db_connection
+from app.connections.db_session import DbSession
 from app.errors.not_found_error import NotFoundError
 from app.models.responses.timeline_response_model import TimelineResponseModel
 from app.queries.timeline.timeline_query import TimelineQuery
@@ -27,7 +27,7 @@ router = APIRouter(
 @router.get("/{product_id}/timeline")
 async def get_timeline(
     product_id: str,
-    connection: Annotated[duckdb.DuckDBPyConnection, Depends(get_db_connection)],
+    connection: Annotated[DbSession, Depends(get_db_connection)],
 ) -> TimelineResponseModel:
     """Return a product with its components and their versions in one call.
 

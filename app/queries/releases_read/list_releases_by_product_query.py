@@ -1,7 +1,6 @@
 """Query that lists a product's release ledger, newest first."""
 
-import duckdb
-
+from app.connections.db_session import DbSession
 from app.errors.not_found_error import NotFoundError
 from app.models.responses.release_response_model import ReleaseResponseModel
 from app.queries.products.product_id_request import ProductIdRequest
@@ -28,9 +27,7 @@ class ListReleasesByProductQuery(Query[list[ReleaseResponseModel]]):
     list; a known product with no releases returns ``[]``. Strictly read-only.
     """
 
-    async def apply(
-        self, data: ProductIdRequest, conn: duckdb.DuckDBPyConnection
-    ) -> list[ReleaseResponseModel]:
+    async def apply(self, data: ProductIdRequest, conn: DbSession) -> list[ReleaseResponseModel]:
         """Read the product's release ledger and attach each frozen manifest.
 
         Args:

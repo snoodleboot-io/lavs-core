@@ -1,8 +1,7 @@
 """Parameterized persistence for the shared ``users`` table."""
 
-import duckdb
-
 from app.auth.users.user_status import UserStatus
+from app.connections.db_session import DbSession
 from app.models.responses.user_response_model import UserResponseModel
 
 
@@ -17,7 +16,7 @@ class UserRepository:
 
     async def create_user(
         self,
-        conn: duckdb.DuckDBPyConnection,
+        conn: DbSession,
         user_id: str,
         email: str,
         password_hash: str,
@@ -43,9 +42,7 @@ class UserRepository:
         )
         return UserResponseModel(id=user_id, email=email, status=status.value, edition=edition)
 
-    async def get_user_by_email(
-        self, conn: duckdb.DuckDBPyConnection, email: str
-    ) -> tuple[object, ...] | None:
+    async def get_user_by_email(self, conn: DbSession, email: str) -> tuple[object, ...] | None:
         """Return the raw user row for an email, or ``None`` when absent.
 
         Args:
@@ -62,9 +59,7 @@ class UserRepository:
             [email],
         ).fetchone()
 
-    async def get_user_by_id(
-        self, conn: duckdb.DuckDBPyConnection, user_id: str
-    ) -> tuple[object, ...] | None:
+    async def get_user_by_id(self, conn: DbSession, user_id: str) -> tuple[object, ...] | None:
         """Return the raw user row for an id, or ``None`` when absent.
 
         Args:
@@ -80,7 +75,7 @@ class UserRepository:
             [user_id],
         ).fetchone()
 
-    async def activate_user(self, conn: duckdb.DuckDBPyConnection, user_id: str) -> None:
+    async def activate_user(self, conn: DbSession, user_id: str) -> None:
         """Transition a user to the ``active`` status.
 
         Args:

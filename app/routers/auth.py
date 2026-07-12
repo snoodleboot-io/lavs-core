@@ -24,7 +24,6 @@ Security posture of the login lane:
 import secrets
 from typing import Annotated
 
-import duckdb
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from app.auth.auth_settings import AuthSettings
@@ -37,6 +36,7 @@ from app.auth.signup.verification_service import VerificationService
 from app.auth.users.user_repository import UserRepository
 from app.auth.users.user_status import UserStatus
 from app.connections.db_dependency import get_db_connection
+from app.connections.db_session import DbSession
 from app.errors.unauthorized_error import UnauthorizedError
 from app.mail.mailer import Mailer
 from app.mail.mailer_dependency import get_mailer
@@ -48,7 +48,7 @@ from app.models.responses.user_response_model import UserResponseModel
 
 router = APIRouter(tags=["auth"], prefix="/auth")
 
-DbConnection = Annotated[duckdb.DuckDBPyConnection, Depends(get_db_connection)]
+DbConnection = Annotated[DbSession, Depends(get_db_connection)]
 MailerDep = Annotated[Mailer, Depends(get_mailer)]
 
 _GENERIC_LOGIN_FAILURE = "invalid credentials"

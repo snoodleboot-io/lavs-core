@@ -8,11 +8,11 @@ parameterized SQL in the query layer.
 
 from typing import Annotated
 
-import duckdb
 from fastapi import APIRouter, Depends, status
 
 from app.auth.require_principal import require_principal
 from app.connections.db_dependency import get_db_connection
+from app.connections.db_session import DbSession
 from app.models.requests.create_component_model import CreateComponentModel
 from app.models.responses.component_response_model import ComponentResponseModel
 from app.models.responses.version_response_model import VersionResponseModel
@@ -28,7 +28,7 @@ router = APIRouter(
     dependencies=[Depends(require_principal)],
 )
 
-DbConnection = Annotated[duckdb.DuckDBPyConnection, Depends(get_db_connection)]
+DbConnection = Annotated[DbSession, Depends(get_db_connection)]
 
 
 @router.post("", response_model=ComponentResponseModel, status_code=status.HTTP_201_CREATED)

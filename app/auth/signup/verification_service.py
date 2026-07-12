@@ -8,11 +8,10 @@ already-consumed — yields the same generic failure so nothing about token or
 account state leaks.
 """
 
-import duckdb
-
 from app.auth.signup.verification_token_repository import VerificationTokenRepository
 from app.auth.token_service import TokenService
 from app.auth.users.user_repository import UserRepository
+from app.connections.db_session import DbSession
 from app.errors.not_found_error import NotFoundError
 from app.models.requests.verify_model import VerifyModel
 from app.models.responses.user_response_model import UserResponseModel
@@ -47,9 +46,7 @@ class VerificationService:
             else VerificationTokenRepository()
         )
 
-    async def verify(
-        self, conn: duckdb.DuckDBPyConnection, model: VerifyModel
-    ) -> UserResponseModel:
+    async def verify(self, conn: DbSession, model: VerifyModel) -> UserResponseModel:
         """Consume the token, activate the user, and return the user model.
 
         Args:

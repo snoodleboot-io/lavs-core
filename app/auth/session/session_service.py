@@ -10,9 +10,8 @@ statement binds its values through ``?`` placeholders.
 
 from datetime import datetime, timedelta
 
-import duckdb
-
 from app.auth.token_service import TokenService
+from app.connections.db_session import DbSession
 from app.models.types.ulid_id import new_ulid
 
 
@@ -28,9 +27,7 @@ class SessionService:
         """
         self._token_service = token_service if token_service is not None else TokenService()
 
-    def create_session(
-        self, conn: duckdb.DuckDBPyConnection, user_id: str, ttl_seconds: int
-    ) -> str:
+    def create_session(self, conn: DbSession, user_id: str, ttl_seconds: int) -> str:
         """Mint a session for a user and return its raw token.
 
         Args:
@@ -51,7 +48,7 @@ class SessionService:
         )
         return token
 
-    def lookup_active_user_id(self, conn: duckdb.DuckDBPyConnection, token: str) -> str | None:
+    def lookup_active_user_id(self, conn: DbSession, token: str) -> str | None:
         """Return the user id of a live (unexpired) session, or ``None``.
 
         Args:
@@ -71,7 +68,7 @@ class SessionService:
             return None
         return str(row[0])
 
-    def delete_session(self, conn: duckdb.DuckDBPyConnection, token: str) -> None:
+    def delete_session(self, conn: DbSession, token: str) -> None:
         """Revoke a session by deleting its row (idempotent).
 
         Args:

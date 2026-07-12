@@ -9,11 +9,11 @@ lane and the read route by the release-read lane.
 
 from typing import Annotated
 
-import duckdb
 from fastapi import APIRouter, Depends, Header
 
 from app.auth.require_principal import require_principal
 from app.connections.db_dependency import get_db_connection
+from app.connections.db_session import DbSession
 from app.events.domain_event import DomainEvent
 from app.events.event_bus import EventBus
 from app.events.event_bus_dependency import get_event_bus
@@ -34,7 +34,7 @@ router = APIRouter(
     dependencies=[Depends(require_principal)],
 )
 
-DbConnection = Annotated[duckdb.DuckDBPyConnection, Depends(get_db_connection)]
+DbConnection = Annotated[DbSession, Depends(get_db_connection)]
 Events = Annotated[EventBus, Depends(get_event_bus)]
 
 

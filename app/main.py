@@ -2,15 +2,14 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import duckdb
 import uvicorn
 from fastapi import FastAPI, Request, Response
 
 from app.auth.auth_resolver_factory import AuthResolverFactory
 from app.auth.auth_settings import AuthSettings
 from app.auth.providers.password_session_provider import PasswordSessionProvider
-from app.connections.connection_factory import ConnectionFactory
-from app.database.database_manager import DatabaseManager
+from app.backends.backend_factory import BackendFactory
+from app.connections.db_session import DbSession
 from app.database.migration.flat_to_relational_migration import FlatToRelationalMigration
 from app.errors.handlers import register_error_handlers
 from app.events.event_bus import EventBus
@@ -22,12 +21,14 @@ logger = logging.getLogger("lavs-api")
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-    """Manage a single DuckDB connection and initialise the schema.
+    """Manage a single database session and initialise the schema.
 
-    On startup this opens one managed DuckDB connection via the connection
-    factory, ensures the configured tables exist (idempotent), and runs the
-    idempotent flat-to-relational migration before serving traffic. The live
-    connection is exposed on ``application.state.db_connection`` so request
+    On startup this builds the configured backend (``LAVS_DB_BACKEND``, DuckDB
+    by default) via :class:`BackendFactory`, opens one managed
+    :class:`DbSession`, materialises the schema through
+    ``backend.init_schema`` (idempotent), and runs the idempotent
+    flat-to-relational migration before serving traffic. The live session is
+    exposed on ``application.state.db_connection`` so request
     handlers and dependencies can reuse it, and is closed automatically at
     shutdown. A single in-process :class:`EventBus` is created and exposed on
     ``application.state.event_bus`` for the SSE and cut-release lanes to share.
@@ -43,11 +44,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     :class:`~app.mail.capture_mailer.CaptureMailer` is exposed on
     ``application.state.mailer`` as the deterministic email sink.
     """
-    with ConnectionFactory().connect(key="duckdb") as raw_connection:
-        if not isinstance(raw_connection, duckdb.DuckDBPyConnection):
-            raise TypeError("The duckdb backend must yield a DuckDBPyConnection.")
-        connection = raw_connection
-        application.state.db_connection = connection
+    backend = BackendFactory().create()
+    with backend.connect() as session:
+        application.state.db_connection = session
         application.state.event_bus = EventBus()
 
         auth_settings = AuthSettings()
@@ -61,9 +60,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         )
         application.state.mailer = CaptureMailer()
 
-        logger.info("Managed DuckDB connection opened for application lifespan.")
-        DatabaseManager.create_tables()
-        FlatToRelationalMigration().run(connection)
+        logger.info("Managed %s session opened for application lifespan.", backend.name.value)
+        backend.init_schema(session)
+        FlatToRelationalMigration().run(session)
         logger.info("Schema initialised and migration applied.")
         try:
             yield
@@ -74,7 +73,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             application.state.auth_registry = None
             application.state.auth_resolver = None
             application.state.mailer = None
-            logger.info("Managed DuckDB connection closed for application lifespan.")
+            logger.info("Managed database session closed for application lifespan.")
 
 
 app = FastAPI(lifespan=lifespan)
@@ -110,7 +109,7 @@ def ready(response: Response, request: Request) -> dict[str, str]:
     Returns:
         A payload describing readiness state.
     """
-    connection: duckdb.DuckDBPyConnection | None = request.app.state.db_connection
+    connection: DbSession | None = request.app.state.db_connection
     if connection is None:
         response.status_code = 503
         return {"status": "not ready"}
