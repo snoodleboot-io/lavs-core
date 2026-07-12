@@ -64,7 +64,10 @@ def auth_test_client(monkeypatch, *, api_key: str | None = None) -> Iterator[Tes
 
     from app.main import app
 
-    with TestClient(app, raise_server_exceptions=False) as client:
+    # Use an https base_url so the hardened ``Secure`` session cookie is carried
+    # by the client's cookie jar — httpx (correctly) withholds a Secure cookie
+    # over http, which is only a test-transport constraint, not app behaviour.
+    with TestClient(app, base_url="https://testserver", raise_server_exceptions=False) as client:
         yield client
 
 
