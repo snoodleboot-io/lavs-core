@@ -1,6 +1,14 @@
 # P4 Auth (OSS) — Multiagent Parallel Execution Plan
 
-> **Status:** ⏸ **AWAITING APPROVAL (2026-07-11).** Would branch `feat/18-p4-auth-oss` off `main`
+> **Status:** ✅ **P4 COMPLETE & GREEN (2026-07-11).** OSS auth shipped — pluggable AuthProvider +
+> require_principal (fail-closed when configured, open when not), password+sessions (signup → email/domain
+> verification → login → /auth/me → logout), ApiKeyProvider, /meta. **373 tests**, ruff/pyright clean.
+> **Gate B security review: 11/11 invariants PASS, zero defects** (argon2id, hashed/expiring/single-use
+> tokens, HttpOnly+Secure+SameSite cookies, timing-safe no-enumeration login, 100% parameterized SQL).
+> Live-socket smoke: fail-closed 401 / API-key 200 / /meta correct. One usability fix applied (login email
+> normalization). Signed commits. Next: P3 (Multi-DB) · P5 (Frontend, needs this).
+>
+> **Original plan (awaiting-approval, 2026-07-11).** Would branch `feat/18-p4-auth-oss` off `main`
 > (P2 merged @ `fa010c4`). Commit signing active. Epic #18 · Linear *P4 — Auth (OSS)*.
 > Presented in full per the 9-section governance framework. **Nothing fires until you approve.**
 > (P3 Multi-DB is the parallel alternative — both depend only on P2; redirect if you'd rather do P3.)
