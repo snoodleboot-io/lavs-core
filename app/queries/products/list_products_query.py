@@ -1,7 +1,6 @@
 """Query that lists every product."""
 
-import duckdb
-
+from app.connections.db_session import DbSession
 from app.models.requests.request_model import RequestModel
 from app.models.responses.product_response_model import ProductResponseModel
 from app.queries.products.product_response_mapper import ProductResponseMapper
@@ -11,9 +10,7 @@ from app.queries.query import Query
 class ListProductsQuery(Query[list[ProductResponseModel]]):
     """Return all products ordered by creation time (oldest first)."""
 
-    async def apply(
-        self, data: RequestModel, conn: duckdb.DuckDBPyConnection
-    ) -> list[ProductResponseModel]:
+    async def apply(self, data: RequestModel, conn: DbSession) -> list[ProductResponseModel]:
         """Select and map every product row.
 
         Args:

@@ -1,6 +1,5 @@
 """Provider that authenticates a browser via the ``lavs_session`` cookie."""
 
-import duckdb
 from fastapi import Request
 
 from app.auth.auth_provider import AuthProvider
@@ -9,6 +8,7 @@ from app.auth.principal_kind import PrincipalKind
 from app.auth.session.session_cookie import SessionCookie
 from app.auth.session.session_service import SessionService
 from app.auth.users.user_repository import UserRepository
+from app.connections.db_session import DbSession
 
 
 class PasswordSessionProvider(AuthProvider):
@@ -54,7 +54,7 @@ class PasswordSessionProvider(AuthProvider):
         if token is None or token == "":
             return None
 
-        connection: duckdb.DuckDBPyConnection | None = request.app.state.db_connection
+        connection: DbSession | None = request.app.state.db_connection
         if connection is None:
             return None
 

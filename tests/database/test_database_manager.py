@@ -9,7 +9,7 @@ from collections.abc import Iterator
 import pytest
 
 import app.configurations.configuration as config_module
-from app.connections.connection_factory import ConnectionFactory
+from app.backends.backend_factory import BackendFactory
 from app.database.database_manager import DatabaseManager
 
 EXPECTED_TABLES = [
@@ -44,10 +44,15 @@ def isolated_db() -> Iterator[str]:
 
 
 def _existing_tables() -> list[str]:
-    """Return the table names currently present in the configured database."""
-    with ConnectionFactory().retrieve(key="duckdb") as conn:
-        rows = conn.execute("SHOW ALL TABLES").fetchall()
-    return [row[2] for row in rows]
+    """Return the table names currently present in the configured database.
+
+    Uses the portable ``information_schema.tables`` listing (the same one
+    :class:`DatabaseManager` now relies on) rather than DuckDB's dialect-specific
+    ``SHOW ALL TABLES``.
+    """
+    with BackendFactory().create().connect() as session:
+        rows = session.execute("SELECT table_name FROM information_schema.tables").fetchall()
+    return [str(row[0]).lower() for row in rows]
 
 
 def test_create_tables_creates_all_configured_tables(isolated_db: str) -> None:

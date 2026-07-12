@@ -7,8 +7,7 @@ Every statement is fully parameterized.
 
 from datetime import datetime
 
-import duckdb
-
+from app.connections.db_session import DbSession
 from app.models.enums.component_kind import ComponentKind
 from app.models.enums.version_status import VersionStatus
 from app.models.responses.component_with_versions_response_model import (
@@ -46,7 +45,7 @@ class TimelineQuery(Query[TimelineResponseModel | None]):
     """
 
     async def apply(
-        self, data: TimelineRequestModel, conn: duckdb.DuckDBPyConnection
+        self, data: TimelineRequestModel, conn: DbSession
     ) -> TimelineResponseModel | None:
         """Read the product graph and build the nested timeline.
 
@@ -65,9 +64,7 @@ class TimelineQuery(Query[TimelineResponseModel | None]):
         components = self._read_components(conn, data.product_id, versions_by_component)
         return TimelineResponseModel(product=product, components=components)
 
-    def _read_product(
-        self, conn: duckdb.DuckDBPyConnection, product_id: str
-    ) -> ProductResponseModel | None:
+    def _read_product(self, conn: DbSession, product_id: str) -> ProductResponseModel | None:
         """Fetch the product row, or ``None`` when it does not exist.
 
         Args:
@@ -89,7 +86,7 @@ class TimelineQuery(Query[TimelineResponseModel | None]):
 
     def _read_components(
         self,
-        conn: duckdb.DuckDBPyConnection,
+        conn: DbSession,
         product_id: str,
         versions_by_component: dict[str, list[VersionResponseModel]],
     ) -> list[ComponentWithVersionsResponseModel]:
@@ -119,7 +116,7 @@ class TimelineQuery(Query[TimelineResponseModel | None]):
         return components
 
     def _read_versions_by_component(
-        self, conn: duckdb.DuckDBPyConnection, product_id: str
+        self, conn: DbSession, product_id: str
     ) -> dict[str, list[VersionResponseModel]]:
         """Fetch every version under the product, grouped by component id.
 

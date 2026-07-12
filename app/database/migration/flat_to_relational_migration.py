@@ -1,7 +1,6 @@
 """Idempotent migration from the legacy flat ``Versions`` table to the relational schema."""
 
-import duckdb
-
+from app.connections.db_session import DbSession
 from app.database.database_manager import DatabaseManager
 from app.database.migration.legacy_schema import LegacySchema
 from app.models.enums.component_kind import ComponentKind
@@ -13,6 +12,17 @@ from app.models.types.ulid_id import new_ulid
 _DEFAULT_COMPONENT_NAME = "default"
 _DEFAULT_COMPONENT_KIND = ComponentKind.SERVICE
 
+# Portable introspection over ``information_schema`` (understood by both DuckDB
+# and PostgreSQL). Table names are matched case-insensitively because DuckDB
+# preserves the declared case (the legacy ``Versions`` table) while the codebase
+# refers to the name in lower case.
+_COLUMNS_FOR_TABLE_SQL = (
+    "SELECT column_name FROM information_schema.columns WHERE lower(table_name) = lower(?)"
+)
+_TABLE_EXISTS_SQL = (
+    "SELECT 1 FROM information_schema.tables WHERE lower(table_name) = lower(?) LIMIT 1"
+)
+
 
 class FlatToRelationalMigration:
     """Migrate legacy flat ``Versions`` rows into ``products``/``components``/``versions``.
@@ -21,7 +31,8 @@ class FlatToRelationalMigration:
 
     * It only acts when a legacy-shaped table (one carrying a ``product_name``
       column) exists with rows **and** the relational ``products`` table is
-      empty. Otherwise it is a no-op.
+      empty. Otherwise it is a no-op — so a fresh DuckDB *or* a fresh Postgres
+      database is left untouched.
     * One :class:`product` is created per distinct ``product_name``; one
       synthetic ``default`` service :class:`component` per product; and one
       :class:`version` per legacy row, preserving ``major``/``minor``/``patch``
@@ -35,58 +46,61 @@ class FlatToRelationalMigration:
     :class:`LegacySchema` named constants.
     """
 
-    def run(self, conn: duckdb.DuckDBPyConnection) -> None:
-        """Run the migration against a live connection.
+    def run(self, session: DbSession) -> None:
+        """Run the migration against a live session.
 
         Args:
-            conn: The managed DuckDB connection to operate on. No ad-hoc
-                connection is opened.
+            session: The managed session to operate on. No ad-hoc connection is
+                opened.
         """
-        if not self._should_migrate(conn):
+        if not self._should_migrate(session):
             return
 
-        legacy_rows = self._read_legacy_rows(conn)
-        self._archive_source_table(conn)
+        legacy_rows = self._read_legacy_rows(session)
+        self._archive_source_table(session)
         # Re-create the relational ``versions`` table now that the colliding
         # legacy name has been archived (``products``/``components`` already
         # exist from schema init; this fills in the freed ``versions`` slot).
-        # Run on the same managed connection — DuckDB allows only one writer.
-        DatabaseManager.create_tables_on(conn)
-        self._insert_relational(conn, legacy_rows)
+        # Run on the same managed session — DuckDB allows only one writer.
+        DatabaseManager.create_tables_on(session)
+        self._insert_relational(session, legacy_rows)
 
-    def _table_columns(self, conn: duckdb.DuckDBPyConnection, table: str) -> list[str]:
-        """Return the lowercase column names of ``table``, or an empty list.
+    def _table_columns(self, session: DbSession, table: str) -> list[str]:
+        """Return the lower-cased column names of ``table``, or an empty list.
 
         Args:
-            conn: The live connection.
+            session: The live session.
             table: The table to introspect.
 
         Returns:
-            The column names, lowercased; empty when the table is absent.
+            The column names, lower-cased; empty when the table is absent.
         """
-        try:
-            info = conn.execute(f"PRAGMA table_info('{table}')").fetchall()
-        except duckdb.Error:
-            return []
-        return [str(row[1]).lower() for row in info]
+        rows = session.execute(_COLUMNS_FOR_TABLE_SQL, [table]).fetchall()
+        return [str(row[0]).lower() for row in rows]
 
-    def _row_count(self, conn: duckdb.DuckDBPyConnection, table: str) -> int:
+    def _table_exists(self, session: DbSession, table: str) -> bool:
+        """Return whether ``table`` is present in the current database."""
+        return session.execute(_TABLE_EXISTS_SQL, [table]).fetchone() is not None
+
+    def _row_count(self, session: DbSession, table: str) -> int:
         """Return the number of rows in ``table``, or ``0`` when it is absent.
 
+        Existence is checked through ``information_schema`` first so this never
+        relies on driver-specific error handling to detect an absent table.
+
         Args:
-            conn: The live connection.
+            session: The live session.
             table: The table to count.
 
         Returns:
             The row count, or ``0`` if the table does not exist.
         """
-        try:
-            result = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
-        except duckdb.Error:
+        if not self._table_exists(session, table):
             return 0
+        result = session.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
         return int(result[0]) if result is not None else 0
 
-    def _should_migrate(self, conn: duckdb.DuckDBPyConnection) -> bool:
+    def _should_migrate(self, session: DbSession) -> bool:
         """Decide whether a migration is warranted (idempotency gate).
 
         Migrate only when the source table is present in its *legacy* shape
@@ -94,39 +108,37 @@ class FlatToRelationalMigration:
         ``products`` table is still empty.
 
         Args:
-            conn: The live connection.
+            session: The live session.
 
         Returns:
             True when the migration should run.
         """
-        source_columns = self._table_columns(conn, LegacySchema.SOURCE_TABLE)
+        source_columns = self._table_columns(session, LegacySchema.SOURCE_TABLE)
         is_legacy_shape = LegacySchema.PRODUCT_NAME_COLUMN in source_columns
         if not is_legacy_shape:
             return False
-        if self._row_count(conn, LegacySchema.SOURCE_TABLE) == 0:
+        if self._row_count(session, LegacySchema.SOURCE_TABLE) == 0:
             return False
-        return self._row_count(conn, DatabaseManager.PRODUCTS_TABLE) == 0
+        return self._row_count(session, DatabaseManager.PRODUCTS_TABLE) == 0
 
-    def _read_legacy_rows(
-        self, conn: duckdb.DuckDBPyConnection
-    ) -> list[tuple[str, int, int, int, str | None]]:
+    def _read_legacy_rows(self, session: DbSession) -> list[tuple[str, int, int, int, str | None]]:
         """Read the legacy rows needed to build the relational records.
 
         Args:
-            conn: The live connection.
+            session: The live session.
 
         Returns:
             Tuples of ``(product_name, major, minor, patch, status)`` ordered so
             output is deterministic.
         """
-        rows = conn.execute(
+        rows = session.execute(
             "SELECT product_name, major, minor, patch, status "
             f"FROM {LegacySchema.SOURCE_TABLE} "
             "ORDER BY product_name, major, minor, patch"
         ).fetchall()
         return [(str(row[0]), int(row[1]), int(row[2]), int(row[3]), row[4]) for row in rows]
 
-    def _archive_source_table(self, conn: duckdb.DuckDBPyConnection) -> None:
+    def _archive_source_table(self, session: DbSession) -> None:
         """Park the legacy table aside, freeing the ``versions`` name.
 
         DuckDB treats table names case-insensitively, so the legacy ``Versions``
@@ -135,15 +147,15 @@ class FlatToRelationalMigration:
         canonical name.
 
         Args:
-            conn: The live connection.
+            session: The live session.
         """
-        conn.execute(
+        session.execute(
             f"ALTER TABLE {LegacySchema.SOURCE_TABLE} RENAME TO {LegacySchema.ARCHIVE_TABLE}"
         )
 
     def _insert_relational(
         self,
-        conn: duckdb.DuckDBPyConnection,
+        session: DbSession,
         legacy_rows: list[tuple[str, int, int, int, str | None]],
     ) -> None:
         """Populate products/components/versions from the legacy rows.
@@ -153,7 +165,7 @@ class FlatToRelationalMigration:
         status preserved 1:1. All values are bound parameters.
 
         Args:
-            conn: The live connection.
+            session: The live session.
             legacy_rows: The tuples returned by :meth:`_read_legacy_rows`.
         """
         component_id_by_product: dict[str, str] = {}
@@ -161,36 +173,34 @@ class FlatToRelationalMigration:
         for product_name, major, minor, patch, status in legacy_rows:
             component_id = component_id_by_product.get(product_name)
             if component_id is None:
-                component_id = self._create_product_and_component(conn, product_name)
+                component_id = self._create_product_and_component(session, product_name)
                 component_id_by_product[product_name] = component_id
 
-            conn.execute(
+            session.execute(
                 "INSERT INTO versions "
                 "(id, component_id, major, minor, patch, prerelease, status) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (new_ulid(), component_id, major, minor, patch, None, status),
             )
 
-    def _create_product_and_component(
-        self, conn: duckdb.DuckDBPyConnection, product_name: str
-    ) -> str:
+    def _create_product_and_component(self, session: DbSession, product_name: str) -> str:
         """Create one product and its synthetic default component.
 
         Args:
-            conn: The live connection.
+            session: The live session.
             product_name: The distinct legacy product name.
 
         Returns:
             The id of the created component (versions hang off this).
         """
         product_id = new_ulid()
-        conn.execute(
+        session.execute(
             "INSERT INTO products (id, name, description) VALUES (?, ?, ?)",
             (product_id, product_name, None),
         )
 
         component_id = new_ulid()
-        conn.execute(
+        session.execute(
             "INSERT INTO components (id, product_id, name, kind) VALUES (?, ?, ?, ?)",
             (component_id, product_id, _DEFAULT_COMPONENT_NAME, str(_DEFAULT_COMPONENT_KIND)),
         )

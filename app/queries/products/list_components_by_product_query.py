@@ -1,7 +1,6 @@
 """Query that lists the components belonging to one product."""
 
-import duckdb
-
+from app.connections.db_session import DbSession
 from app.models.enums.component_kind import ComponentKind
 from app.models.responses.component_response_model import ComponentResponseModel
 from app.queries.products.product_id_request import ProductIdRequest
@@ -16,9 +15,7 @@ class ListComponentsByProductQuery(Query[list[ComponentResponseModel]]):
     returns the — possibly empty — set of components for that product.
     """
 
-    async def apply(
-        self, data: ProductIdRequest, conn: duckdb.DuckDBPyConnection
-    ) -> list[ComponentResponseModel]:
+    async def apply(self, data: ProductIdRequest, conn: DbSession) -> list[ComponentResponseModel]:
         """Select the components for ``data.product_id``.
 
         Args:

@@ -8,7 +8,7 @@ is taken from the database (``CURRENT_TIMESTAMP``) rather than the process so
 issuance and expiry share one clock.
 """
 
-import duckdb
+from app.connections.db_session import DbSession
 
 
 class VerificationTokenRepository:
@@ -16,7 +16,7 @@ class VerificationTokenRepository:
 
     async def issue(
         self,
-        conn: duckdb.DuckDBPyConnection,
+        conn: DbSession,
         token_hash: str,
         user_id: str,
         ttl_seconds: int,
@@ -30,6 +30,10 @@ class VerificationTokenRepository:
             user_id: The id of the pending user the token verifies.
             ttl_seconds: The token lifetime, added to the DB clock for expiry.
         """
+        # TODO(R3): the ``(? * INTERVAL 1 SECOND)`` expiry expression is
+        # DuckDB-specific and does not parse on PostgreSQL. R3 will make expiry
+        # Python-computed (a bound ``expires_at`` timestamp) so this statement is
+        # dialect-neutral. Left as-is for now — behaviour on DuckDB is unchanged.
         conn.execute(
             "INSERT INTO email_verification_tokens "
             "(token_hash, user_id, expires_at, consumed_at) "
@@ -38,9 +42,7 @@ class VerificationTokenRepository:
             [token_hash, user_id, ttl_seconds],
         )
 
-    async def find_active(
-        self, conn: duckdb.DuckDBPyConnection, token_hash: str
-    ) -> tuple[object, ...] | None:
+    async def find_active(self, conn: DbSession, token_hash: str) -> tuple[object, ...] | None:
         """Return an unconsumed, unexpired token row, or ``None``.
 
         The match is by stored hash (the presented token is hashed before this
@@ -63,7 +65,7 @@ class VerificationTokenRepository:
             [token_hash],
         ).fetchone()
 
-    async def consume(self, conn: duckdb.DuckDBPyConnection, token_hash: str) -> None:
+    async def consume(self, conn: DbSession, token_hash: str) -> None:
         """Mark a token consumed so it can never be used again.
 
         Args:

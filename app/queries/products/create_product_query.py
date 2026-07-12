@@ -1,7 +1,6 @@
 """Query that inserts a new product and returns its response model."""
 
-import duckdb
-
+from app.connections.db_session import DbSession
 from app.errors.conflict_error import ConflictError
 from app.models.requests.create_product_model import CreateProductModel
 from app.models.responses.product_response_model import ProductResponseModel
@@ -18,9 +17,7 @@ class CreateProductQuery(Query[ProductResponseModel]):
     HTTP 409 through the registered envelope handler.
     """
 
-    async def apply(
-        self, data: CreateProductModel, conn: duckdb.DuckDBPyConnection
-    ) -> ProductResponseModel:
+    async def apply(self, data: CreateProductModel, conn: DbSession) -> ProductResponseModel:
         """Insert the product and return the stored row as a response model.
 
         Args:

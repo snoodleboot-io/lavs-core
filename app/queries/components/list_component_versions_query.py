@@ -2,8 +2,7 @@
 
 from datetime import datetime
 
-import duckdb
-
+from app.connections.db_session import DbSession
 from app.errors.not_found_error import NotFoundError
 from app.models.responses.version_response_model import VersionResponseModel
 from app.queries.components.list_component_versions_request import (
@@ -29,7 +28,7 @@ class ListComponentVersionsQuery(Query[list[VersionResponseModel]]):
     """
 
     async def apply(
-        self, data: ListComponentVersionsRequest, conn: duckdb.DuckDBPyConnection
+        self, data: ListComponentVersionsRequest, conn: DbSession
     ) -> list[VersionResponseModel]:
         """Fetch the version history for ``data.component_id``.
 

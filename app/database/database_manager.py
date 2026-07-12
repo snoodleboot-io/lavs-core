@@ -2,8 +2,9 @@
 
 import os
 
+from app.backends.backend_factory import BackendFactory
 from app.configurations.configuration import load_database_config
-from app.connections.connection_factory import ConnectionFactory
+from app.connections.db_session import DbSession
 
 
 class DatabaseManager:
@@ -11,7 +12,7 @@ class DatabaseManager:
 
     Initialisation is config-driven: the set of tables is read from
     ``database.yaml`` (via :func:`load_database_config`) while the concrete DDL
-    lives in ``duckdb/ddl.sql``. No table name is hardcoded here.
+    comes from the configured backend. No table name is hardcoded here.
     """
 
     #: The relational root table, exposed so callers can probe migration state
@@ -19,25 +20,34 @@ class DatabaseManager:
     #: literal at the call site.
     PRODUCTS_TABLE = "products"
 
+    #: Portable listing of the current database's tables. ``information_schema``
+    #: is understood by both DuckDB and PostgreSQL, so this replaces DuckDB's
+    #: dialect-specific ``SHOW ALL TABLES``.
+    _LIST_TABLES_SQL = "SELECT table_name FROM information_schema.tables"
+
     @classmethod
     def _ddl_text(cls) -> str:
-        """Return the contents of the DuckDB DDL script."""
+        """Return the contents of the DuckDB DDL script.
+
+        Used by :meth:`create_tables_on`, which the startup migration and the
+        in-memory DuckDB unit tests call against an already-open connection.
+        """
         ddl_path = os.path.join(os.path.dirname(__file__), "duckdb/ddl.sql")
         with open(ddl_path, encoding="utf-8") as stream:
             return stream.read()
 
     @classmethod
-    def create_tables_on(cls, conn) -> None:
-        """Run ``ddl.sql`` against an already-open connection.
+    def create_tables_on(cls, session: DbSession) -> None:
+        """Run the DuckDB ``ddl.sql`` against an already-open session.
 
         Used by the startup migration, which must create tables on the managed
-        connection rather than opening a second connection to the same DuckDB
-        file (DuckDB permits only one writer).
+        session rather than opening a second connection to the same DuckDB file
+        (DuckDB permits only one writer).
 
         Args:
-            conn: A live DuckDB connection to run the DDL on.
+            session: A live session to run the DDL on.
         """
-        conn.execute(query=cls._ddl_text())
+        session.execute(cls._ddl_text())
 
     @classmethod
     def _table_names(cls) -> list[str]:
@@ -46,29 +56,30 @@ class DatabaseManager:
         return [table.name for table in config.database.tables]
 
     @classmethod
-    def _existing_tables(cls, conn) -> list[str]:
-        """Return the names of the tables currently present in the database.
+    def _existing_tables(cls, session: DbSession) -> list[str]:
+        """Return the names of the tables currently present, lower-cased.
 
-        ``SHOW ALL TABLES`` yields rows of the form
-        ``(database, schema, name, ...)`` so the table name is at index 2.
+        Names are lower-cased so membership checks are case-insensitive across
+        dialects (DuckDB preserves the declared case in ``information_schema``).
         """
-        table_result = conn.execute("SHOW ALL TABLES").fetchall()
-        return [row[2] for row in table_result]
+        rows = session.execute(cls._LIST_TABLES_SQL).fetchall()
+        return [str(row[0]).lower() for row in rows]
 
     @classmethod
     def create_tables(cls) -> None:
-        """Create the configured tables by running ``ddl.sql``.
+        """Create the configured tables via the configured backend.
 
-        After running the DDL, every table named in the configuration is
-        verified to exist.
+        After running the backend's schema init, every table named in the
+        configuration is verified to exist.
 
         Raises:
             AssertionError: When a configured table is missing after init.
         """
-        with ConnectionFactory().retrieve(key="duckdb") as conn:
-            conn.execute(query=cls._ddl_text())
+        backend = BackendFactory().create()
+        with backend.connect() as session:
+            backend.init_schema(session)
 
-            existing = cls._existing_tables(conn)
+            existing = cls._existing_tables(session)
             for table_name in cls._table_names():
                 assert table_name in existing, f"Expected table '{table_name}' to exist after init."
 
@@ -78,10 +89,11 @@ class DatabaseManager:
 
         Tables are dropped in the reverse of their configured order so that
         child tables are removed before the parents they reference, satisfying
-        DuckDB's foreign-key constraints.
+        foreign-key constraints.
         """
-        with ConnectionFactory().retrieve(key="duckdb") as conn:
-            existing = cls._existing_tables(conn)
+        backend = BackendFactory().create()
+        with backend.connect() as session:
+            existing = cls._existing_tables(session)
             for table_name in reversed(cls._table_names()):
                 if table_name in existing:
-                    conn.execute(query=f"DROP TABLE {table_name}")
+                    session.execute(f"DROP TABLE {table_name}")

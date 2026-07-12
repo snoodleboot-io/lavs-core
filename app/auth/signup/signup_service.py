@@ -8,8 +8,6 @@ Security posture:
   nothing about account existence (no enumeration).
 """
 
-import duckdb
-
 from app.auth.auth_settings import AuthSettings
 from app.auth.password_hasher import PasswordHasher
 from app.auth.signup.verification_email import VerificationEmail
@@ -18,6 +16,7 @@ from app.auth.signup.verification_token_repository import VerificationTokenRepos
 from app.auth.token_service import TokenService
 from app.auth.users.user_repository import UserRepository
 from app.auth.users.user_status import UserStatus
+from app.connections.db_session import DbSession
 from app.errors.conflict_error import ConflictError
 from app.errors.domain_not_allowed_error import DomainNotAllowedError
 from app.mail.mailer import Mailer
@@ -67,7 +66,7 @@ class SignupService:
 
     async def register(
         self,
-        conn: duckdb.DuckDBPyConnection,
+        conn: DbSession,
         mailer: Mailer,
         model: SignupModel,
         settings: AuthSettings,
@@ -134,7 +133,7 @@ class SignupService:
                 details={"domain": domain},
             )
 
-    async def _assert_email_available(self, conn: duckdb.DuckDBPyConnection, email: str) -> None:
+    async def _assert_email_available(self, conn: DbSession, email: str) -> None:
         """Raise a generic conflict when the email is already registered.
 
         Args:
