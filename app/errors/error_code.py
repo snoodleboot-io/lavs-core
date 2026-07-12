@@ -13,5 +13,8 @@ class ErrorCode(StrEnum):
     NOT_FOUND = "not_found"
     CONFLICT = "conflict"
     VALIDATION_ERROR = "validation_error"
+    UNAUTHORIZED = "unauthorized"
+    FORBIDDEN = "forbidden"
+    DOMAIN_NOT_ALLOWED = "domain_not_allowed"
     HTTP_ERROR = "http_error"
     INTERNAL_ERROR = "internal_error"

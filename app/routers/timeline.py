@@ -2,7 +2,7 @@
 
 Mounted under the ``/products`` prefix; the timeline lane adds
 ``GET /{product_id}/timeline``. The shell fixes the prefix, tag, and the
-mandatory API-key dependency so auth is enforced uniformly.
+mandatory authenticated-principal dependency so auth is enforced uniformly.
 """
 
 from typing import Annotated
@@ -10,17 +10,17 @@ from typing import Annotated
 import duckdb
 from fastapi import APIRouter, Depends
 
+from app.auth.require_principal import require_principal
 from app.connections.db_dependency import get_db_connection
 from app.errors.not_found_error import NotFoundError
 from app.models.responses.timeline_response_model import TimelineResponseModel
 from app.queries.timeline.timeline_query import TimelineQuery
 from app.queries.timeline.timeline_request_model import TimelineRequestModel
-from app.security.api_key import get_api_key
 
 router = APIRouter(
     tags=["timeline"],
     prefix="/products",
-    dependencies=[Depends(get_api_key)],
+    dependencies=[Depends(require_principal)],
 )
 
 
