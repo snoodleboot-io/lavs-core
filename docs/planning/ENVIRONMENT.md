@@ -80,3 +80,21 @@ or lane-vs-server contention occurs during the fan-out.
 
 New dep (flagged): **`argon2-cffi` 25.1.0** (argon2id password hashing) → runtime dependency.
 Readiness: `P4_ENV_READY=GREEN`.
+
+---
+
+# P3 Environment Manifest — 2026-07-12, branch `feat/17-p3-multi-db`. **Gate: GREEN.**
+
+| # | Service | Status | Verify |
+|---|---|---|---|
+| E1 | Python 3.14 / uv | ✅ 3.14.4 | `import app.main`; `import psycopg`; `from testcontainers.postgres import PostgresContainer` |
+| E2 | DuckDB (default) | ✅ | 373 suite green on duckdb |
+| E3 | Docker daemon | ✅ 29.1.3 | `docker version` |
+| E4 | PostgreSQL container | ✅ | testcontainers `postgres:17-alpine` up; `psycopg SELECT 1 → (1,)` |
+| E5 | pyright / ruff | ✅ | 0 err / clean |
+| E6 | pytest | ✅ 373 | duckdb baseline |
+| E7 | Uvicorn `:8001` | ✅ | can point at PG via `LAVS_DB_BACKEND=postgres` for live smoke |
+| E8 | testcontainers plumbing | ✅ | disposable PG start/stop proven |
+
+New deps (flagged): **`psycopg[binary]` 3.3.4** (runtime PG driver) · **`testcontainers[postgres]` 4.14.2** (dev/test).
+Readiness: `P3_ENV_READY=GREEN`.
