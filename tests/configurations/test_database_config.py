@@ -16,6 +16,9 @@ def test_database_config_lists_core_tables() -> None:
         "versions",
         "releases",
         "release_components",
+        "users",
+        "sessions",
+        "email_verification_tokens",
     ]
 
 
@@ -38,6 +41,17 @@ def test_release_components_follows_releases() -> None:
 
     # Assert
     assert names.index("releases") < names.index("release_components")
+
+
+def test_users_precede_their_child_tables() -> None:
+    """sessions and email_verification_tokens must follow users so drops honour FKs."""
+    # Act
+    config = load_database_config()
+    names = [table.name for table in config.database.tables]
+
+    # Assert
+    assert names.index("users") < names.index("sessions")
+    assert names.index("users") < names.index("email_verification_tokens")
 
 
 def test_versions_table_declares_status_field() -> None:

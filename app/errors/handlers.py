@@ -20,6 +20,8 @@ from app.errors.error_envelope import ErrorEnvelope
 # ``http_error`` fallback. Kept as a mapping (config-style) rather than inline
 # magic numbers in branches.
 _HTTP_STATUS_TO_CODE: dict[int, ErrorCode] = {
+    status.HTTP_401_UNAUTHORIZED: ErrorCode.UNAUTHORIZED,
+    status.HTTP_403_FORBIDDEN: ErrorCode.FORBIDDEN,
     status.HTTP_404_NOT_FOUND: ErrorCode.NOT_FOUND,
     status.HTTP_409_CONFLICT: ErrorCode.CONFLICT,
 }

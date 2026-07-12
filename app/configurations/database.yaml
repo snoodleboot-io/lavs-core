@@ -64,6 +64,42 @@ database:
           type: VARCHAR
         - name: version_id
           type: VARCHAR
+    - name: users
+      fields:
+        - name: id
+          type: VARCHAR PRIMARY KEY
+        - name: email
+          type: VARCHAR
+        - name: password_hash
+          type: VARCHAR
+        - name: status
+          type: VARCHAR
+        - name: edition
+          type: VARCHAR
+        - name: created_at
+          type: TIMESTAMP
+    - name: sessions
+      fields:
+        - name: id
+          type: VARCHAR PRIMARY KEY
+        - name: user_id
+          type: VARCHAR
+        - name: token_hash
+          type: VARCHAR
+        - name: created_at
+          type: TIMESTAMP
+        - name: expires_at
+          type: TIMESTAMP
+    - name: email_verification_tokens
+      fields:
+        - name: token_hash
+          type: VARCHAR PRIMARY KEY
+        - name: user_id
+          type: VARCHAR
+        - name: expires_at
+          type: TIMESTAMP
+        - name: consumed_at
+          type: TIMESTAMP
 
 duck_db:
   database: test.db

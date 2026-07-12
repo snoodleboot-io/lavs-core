@@ -6,12 +6,15 @@ import duckdb
 import uvicorn
 from fastapi import FastAPI, Request, Response
 
+from app.auth.auth_resolver_factory import AuthResolverFactory
+from app.auth.auth_settings import AuthSettings
 from app.connections.connection_factory import ConnectionFactory
 from app.database.database_manager import DatabaseManager
 from app.database.migration.flat_to_relational_migration import FlatToRelationalMigration
 from app.errors.handlers import register_error_handlers
 from app.events.event_bus import EventBus
-from app.routers import components, events, products, releases, timeline, versions
+from app.mail.capture_mailer import CaptureMailer
+from app.routers import auth, components, events, meta, products, releases, timeline, versions
 
 logger = logging.getLogger("lavs-api")
 
@@ -27,6 +30,17 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     handlers and dependencies can reuse it, and is closed automatically at
     shutdown. A single in-process :class:`EventBus` is created and exposed on
     ``application.state.event_bus`` for the SSE and cut-release lanes to share.
+
+    The auth spine is also assembled here: :class:`AuthSettings` is read from the
+    environment, an :class:`~app.auth.auth_registry.AuthRegistry` is populated
+    with the enabled providers (the API-key provider today), and an
+    :class:`~app.auth.auth_resolver.AuthResolver` over it is exposed on
+    ``application.state.auth_resolver``. The registry itself is exposed on
+    ``application.state.auth_registry`` so a later lane (R2's
+    ``PasswordSessionProvider``) can register onto it — the resolver reads the
+    registry live, so a provider added after startup still takes effect. A
+    :class:`~app.mail.capture_mailer.CaptureMailer` is exposed on
+    ``application.state.mailer`` as the deterministic email sink.
     """
     with ConnectionFactory().connect(key="duckdb") as raw_connection:
         if not isinstance(raw_connection, duckdb.DuckDBPyConnection):
@@ -34,6 +48,16 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         connection = raw_connection
         application.state.db_connection = connection
         application.state.event_bus = EventBus()
+
+        auth_settings = AuthSettings()
+        auth_registry = AuthResolverFactory.build_registry(auth_settings)
+        application.state.auth_settings = auth_settings
+        application.state.auth_registry = auth_registry
+        application.state.auth_resolver = AuthResolverFactory.build_resolver(
+            auth_settings, registry=auth_registry
+        )
+        application.state.mailer = CaptureMailer()
+
         logger.info("Managed DuckDB connection opened for application lifespan.")
         DatabaseManager.create_tables()
         FlatToRelationalMigration().run(connection)
@@ -43,6 +67,10 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         finally:
             application.state.db_connection = None
             application.state.event_bus = None
+            application.state.auth_settings = None
+            application.state.auth_registry = None
+            application.state.auth_resolver = None
+            application.state.mailer = None
             logger.info("Managed DuckDB connection closed for application lifespan.")
 
 
@@ -94,6 +122,8 @@ def ready(response: Response, request: Request) -> dict[str, str]:
     return {"status": "ready"}
 
 
+app.include_router(meta.router)
+app.include_router(auth.router)
 app.include_router(products.router)
 app.include_router(components.router)
 app.include_router(versions.router)

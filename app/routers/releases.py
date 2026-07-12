@@ -3,7 +3,7 @@
 Deliberately carries **no prefix**: releases are addressed under two roots —
 ``/products/{id}/releases`` (list + cut) and ``/releases/{id}`` (read one) — so
 each route declares its full path. The shell fixes only the tag and the
-mandatory API-key dependency; the cut/list routes are added by the release-write
+mandatory authenticated-principal dependency; the cut/list routes are added by the release-write
 lane and the read route by the release-read lane.
 """
 
@@ -12,6 +12,7 @@ from typing import Annotated
 import duckdb
 from fastapi import APIRouter, Depends, Header
 
+from app.auth.require_principal import require_principal
 from app.connections.db_dependency import get_db_connection
 from app.events.domain_event import DomainEvent
 from app.events.event_bus import EventBus
@@ -27,11 +28,10 @@ from app.queries.releases_read.list_releases_by_product_query import (
     ListReleasesByProductQuery,
 )
 from app.queries.releases_read.release_id_request import ReleaseIdRequest
-from app.security.api_key import get_api_key
 
 router = APIRouter(
     tags=["releases"],
-    dependencies=[Depends(get_api_key)],
+    dependencies=[Depends(require_principal)],
 )
 
 DbConnection = Annotated[duckdb.DuckDBPyConnection, Depends(get_db_connection)]

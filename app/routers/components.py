@@ -1,6 +1,6 @@
 """Router for the ``/components`` resource.
 
-The shell fixes the prefix, tag, and the mandatory API-key dependency so auth is
+The shell fixes the prefix, tag, and the mandatory authenticated-principal dependency so auth is
 enforced uniformly; the routes below add component creation and the immutable
 per-component version history. Every database value is bound through
 parameterized SQL in the query layer.
@@ -11,6 +11,7 @@ from typing import Annotated
 import duckdb
 from fastapi import APIRouter, Depends, status
 
+from app.auth.require_principal import require_principal
 from app.connections.db_dependency import get_db_connection
 from app.models.requests.create_component_model import CreateComponentModel
 from app.models.responses.component_response_model import ComponentResponseModel
@@ -20,12 +21,11 @@ from app.queries.components.list_component_versions_query import ListComponentVe
 from app.queries.components.list_component_versions_request import (
     ListComponentVersionsRequest,
 )
-from app.security.api_key import get_api_key
 
 router = APIRouter(
     tags=["components"],
     prefix="/components",
-    dependencies=[Depends(get_api_key)],
+    dependencies=[Depends(require_principal)],
 )
 
 DbConnection = Annotated[duckdb.DuckDBPyConnection, Depends(get_db_connection)]

@@ -47,3 +47,30 @@ CREATE TABLE IF NOT EXISTS release_components (
     version_id VARCHAR NOT NULL,
     PRIMARY KEY (release_id, component_id)
 );
+
+-- Auth (P4): password/session users and their opaque, hashed tokens.
+-- Passwords are stored as argon2id hashes; session and verification tokens are
+-- stored only as their SHA-256 hashes (the raw token is never persisted).
+CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR PRIMARY KEY,
+    email VARCHAR NOT NULL UNIQUE,
+    password_hash VARCHAR NOT NULL,
+    status VARCHAR NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'disabled')),
+    edition VARCHAR,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id VARCHAR PRIMARY KEY,
+    user_id VARCHAR NOT NULL REFERENCES users(id),
+    token_hash VARCHAR NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    token_hash VARCHAR PRIMARY KEY,
+    user_id VARCHAR NOT NULL REFERENCES users(id),
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP
+);

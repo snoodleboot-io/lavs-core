@@ -2,7 +2,7 @@
 
 Implements product listing, creation (with duplicate-name conflict handling),
 single-product retrieval, and listing a product's components. The prefix, tag,
-and mandatory API-key dependency are fixed on the shared ``router`` below; each
+and mandatory authenticated-principal dependency are fixed on the shared ``router`` below; each
 handler delegates persistence to a dedicated :class:`~app.queries.query.Query`
 and reuses the application-managed DuckDB connection.
 """
@@ -12,6 +12,7 @@ from typing import Annotated
 import duckdb
 from fastapi import APIRouter, Depends, status
 
+from app.auth.require_principal import require_principal
 from app.connections.db_dependency import get_db_connection
 from app.models.requests.create_product_model import CreateProductModel
 from app.models.requests.request_model import RequestModel
@@ -24,12 +25,11 @@ from app.queries.products.list_components_by_product_query import (
 )
 from app.queries.products.list_products_query import ListProductsQuery
 from app.queries.products.product_id_request import ProductIdRequest
-from app.security.api_key import get_api_key
 
 router = APIRouter(
     tags=["products"],
     prefix="/products",
-    dependencies=[Depends(get_api_key)],
+    dependencies=[Depends(require_principal)],
 )
 
 DbConnection = Annotated[duckdb.DuckDBPyConnection, Depends(get_db_connection)]

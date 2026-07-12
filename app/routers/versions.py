@@ -1,6 +1,6 @@
 """Routes for the ``/versions`` resource: immutable create and rollback.
 
-The router shell fixes the prefix, tag, and mandatory API-key dependency; this
+The router shell fixes the prefix, tag, and mandatory authenticated-principal dependency; this
 module fills in the two lifecycle endpoints:
 
 * ``POST /versions`` -- append an immutable version, making it the component's
@@ -14,6 +14,7 @@ from typing import Annotated
 import duckdb
 from fastapi import APIRouter, Depends
 
+from app.auth.require_principal import require_principal
 from app.connections.db_dependency import get_db_connection
 from app.events.event_bus import EventBus
 from app.events.event_bus_dependency import get_event_bus
@@ -22,12 +23,11 @@ from app.models.responses.version_response_model import VersionResponseModel
 from app.queries.versions.create_version_query import CreateVersionQuery
 from app.queries.versions.rollback_version_query import RollbackVersionQuery
 from app.queries.versions.rollback_version_request import RollbackVersionRequest
-from app.security.api_key import get_api_key
 
 router = APIRouter(
     tags=["versions"],
     prefix="/versions",
-    dependencies=[Depends(get_api_key)],
+    dependencies=[Depends(require_principal)],
 )
 
 DbConnection = Annotated[duckdb.DuckDBPyConnection, Depends(get_db_connection)]
