@@ -1,6 +1,13 @@
 # P3 Multi-DB Backends — Multiagent Parallel Execution Plan
 
-> **Status:** ⏸ **AWAITING APPROVAL (2026-07-12).** Would branch `feat/17-p3-multi-db` off `main`
+> **Status:** ✅ **P3 COMPLETE & GREEN (2026-07-12).** Multi-DB shipped — Backend interface + DbSession
+> paramstyle wrapper; DuckDB (dev) and **PostgreSQL** (prod) interchangeable via `LAVS_DB_BACKEND`. Exit
+> criterion met: the **identical suite passes on DuckDB (404) AND real Postgres (8 parity tests via
+> testcontainers)**; live PG wire smoke green. Only dialect fix needed was the verification-token INTERVAL.
+> ruff/pyright clean; Gate B: paramstyle wrapper value-safe, no string-SQL, no creds logged. Signed commits.
+> MySQL/SQL Server remain deferred behind the interface. Next: P5 (Frontend) then P6 (EE/Stytch).
+>
+> **Original plan (awaiting-approval, 2026-07-12).** Would branch `feat/17-p3-multi-db` off `main`
 > (P4 merged @ `b0cd194`). Commit signing active. Epic #17 · Linear *P3 — Multi-DB backends*.
 > Presented per the 9-section governance framework. **Nothing fires until you approve.**
 > (P5 Frontend is the alternative — redirect if you'd rather build the UI next.)
