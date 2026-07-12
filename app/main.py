@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, Response
 
 from app.auth.auth_resolver_factory import AuthResolverFactory
 from app.auth.auth_settings import AuthSettings
+from app.auth.providers.password_session_provider import PasswordSessionProvider
 from app.connections.connection_factory import ConnectionFactory
 from app.database.database_manager import DatabaseManager
 from app.database.migration.flat_to_relational_migration import FlatToRelationalMigration
@@ -51,6 +52,8 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
         auth_settings = AuthSettings()
         auth_registry = AuthResolverFactory.build_registry(auth_settings)
+        if auth_settings.password_enabled():
+            auth_registry.register(PasswordSessionProvider(edition=auth_settings.edition()))
         application.state.auth_settings = auth_settings
         application.state.auth_registry = auth_registry
         application.state.auth_resolver = AuthResolverFactory.build_resolver(
