@@ -79,6 +79,7 @@ markers = [
     "integration: marks tests as integration tests",
     "security: marks tests as security tests",
     "unit: marks tests as unit tests",
+    "postgres: parity tests that run the app against a real PostgreSQL testcontainer (requires Docker)",
 ]
 
 [tool.pyright]

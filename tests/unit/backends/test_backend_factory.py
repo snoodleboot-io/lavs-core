@@ -34,8 +34,21 @@ class TestBackendFactorySelection:
         # Assert
         assert isinstance(backend, DuckDBBackend)
 
-    def test_unregistered_backend_raises(self) -> None:
-        # Arrange: postgres is not registered in this lane.
+    def test_postgres_is_registered(self) -> None:
+        # Arrange: the Postgres lane self-registers on import of app.backends.
+        from app.backends.postgres_backend import PostgresBackend
+
+        settings = BackendSettings(backend=BackendKind.POSTGRES)
+
+        # Act
+        backend = BackendFactory(settings).create()
+
+        # Assert
+        assert isinstance(backend, PostgresBackend)
+
+    def test_unregistered_backend_raises(self, preserved_registry: None) -> None:
+        # Arrange: drop the Postgres builder so its kind has no registered builder.
+        BackendFactory._registry.pop(BackendKind.POSTGRES, None)
         settings = BackendSettings(backend=BackendKind.POSTGRES)
 
         # Act / Assert
