@@ -17,9 +17,14 @@ export default defineConfig({
   webServer: process.env.E2E_NO_SERVER
     ? undefined
     : {
-        command: 'pnpm dev',
+        // Serve a built app via `vite preview` (no file watchers — avoids the env's EMFILE
+        // limit). Intercept the API in-browser (MSW) so the full flow runs deterministically
+        // without a live backend. Live-SSE isn't reliably mockable in a service worker; it's
+        // covered by the R3 hook/reducer unit tests.
+        command: 'pnpm run e2e:serve',
         url: 'http://127.0.0.1:5173',
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
+        env: { VITE_E2E_MOCK: '1' },
       },
 });

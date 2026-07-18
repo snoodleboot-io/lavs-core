@@ -1,0 +1,141 @@
+.layout {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: var(--gap);
+  height: 100%;
+  min-height: 0;
+}
+
+.canvasRow {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.canvasWrap {
+  position: relative;
+  border: 1px solid var(--panel-brd);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(13, 19, 34, 0.7), rgba(7, 11, 20, 0.7));
+  overflow: hidden;
+  min-height: 0;
+}
+
+.hint {
+  position: absolute;
+  left: 16px;
+  bottom: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+  pointer-events: none;
+}
+
+.hud {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.manifestCard {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--panel-brd);
+  border-radius: var(--radius);
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  padding: 14px;
+}
+
+.cardHeading {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.manifest {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.manifestRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+}
+
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.manifestName {
+  color: var(--ink);
+}
+
+.manifestVersion {
+  margin-left: auto;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.paletteTrigger {
+  background: #121a2e;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.paletteTrigger:hover {
+  border-color: var(--meridian);
+}
+
+.live {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.live::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.live[data-connected='true'] {
+  color: var(--good);
+}
+
+.live[data-connected='true']::before {
+  background: var(--good);
+  box-shadow: 0 0 8px var(--good);
+}
+
+@media (max-width: 900px) {
+  .canvasRow {
+    grid-template-columns: 1fr;
+  }
+}

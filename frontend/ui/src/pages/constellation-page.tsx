@@ -1,50 +1,49 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { AppShell } from '@/app/app-shell';
+import { ProductNav } from '@/features/nav';
 import { useProducts, useTimeline } from '@/features/products';
 
+import { ConstellationWorkspace } from './constellation-workspace';
 import styles from './constellation-page.module.css';
 
 /**
- * Foundation placeholder: loads the first product's timeline and renders a minimal
- * component summary. The R1 Constellation view, R2 cut/ledger panel and R3 live layer
- * mount here (composed by the aggregator).
+ * Constellation route: resolves the active product (first product by default, switchable via
+ * the nav) and its timeline, then hands a guaranteed timeline to the workspace. Loading and
+ * error states keep the shell chrome so the nav stays usable.
  */
 export function ConstellationPage(): ReactNode {
   const productsQuery = useProducts();
-  const productId = productsQuery.data?.[0]?.id;
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const productId = selectedId ?? productsQuery.data?.[0]?.id;
   const timelineQuery = useTimeline(productId);
   const timeline = timelineQuery.data;
 
-  const productLabel = timeline
-    ? `${timeline.product.name} · ${timeline.components.length} components`
-    : undefined;
+  if (productId && timeline) {
+    return (
+      <ConstellationWorkspace
+        key={productId}
+        productId={productId}
+        timeline={timeline}
+        onSelectProduct={setSelectedId}
+      />
+    );
+  }
 
   return (
-    <AppShell productLabel={productLabel}>
-      {timelineQuery.isLoading ? (
+    <AppShell headerActions={<ProductNav productId={productId} onSelect={setSelectedId} />}>
+      {productsQuery.isError || timelineQuery.isError ? (
+        <p role="alert" className={styles.status}>
+          Could not load the constellation.
+        </p>
+      ) : productsQuery.data && productsQuery.data.length === 0 ? (
+        <p role="status" className={styles.status}>
+          No products yet.
+        </p>
+      ) : (
         <p role="status" className={styles.status}>
           Charting the constellation…
         </p>
-      ) : timelineQuery.isError ? (
-        <p role="alert" className={styles.status}>
-          Could not load the timeline.
-        </p>
-      ) : timeline ? (
-        <section className={styles.panel} aria-label="Component streams">
-          <h2 className={styles.heading}>Streams</h2>
-          <ul className={styles.list}>
-            {timeline.components.map((component) => (
-              <li key={component.id} className={styles.row}>
-                <span className={styles.name}>{component.name}</span>
-                <span className={styles.kind}>{component.kind}</span>
-                <span className={`${styles.count} mono`}>{component.versions.length} versions</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : (
-        <p className={styles.status}>No products yet.</p>
       )}
     </AppShell>
   );

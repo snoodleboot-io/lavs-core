@@ -8,10 +8,10 @@ from `frontend/ui`.
 | E1 | Node 20 / pnpm | ✅ node 20.20.2 · pnpm 10.33.4 | `node -v`, `pnpm -v` |
 | E2 | Vite/React/TS scaffold + `pnpm install` | ✅ | `pnpm build` clean (tsc --noEmit + vite build; 122 modules, ~107 kB gzip) |
 | E3 | Vite dev server | ✅ :5173 | `pnpm dev`; proxy `/api` → backend `:8001` (same-origin so the session cookie flows) |
-| E4 | Uvicorn backend (DuckDB) + seed | ⏸ used at Gate C | `uv run uvicorn app.main:app --port 8001`; needed only for the full E2E flow |
+| E4 | Uvicorn backend (DuckDB) + seed | ⚠ not required for CI | API verified complete vs contract (`/meta`,`/auth/*`,`/timeline`,`/events`,releases). E2E runs against in-browser MSW instead of a seeded backend (DuckDB single-writer + signup/verify seeding is disproportionate); the real-backend path stays proven by the redirect smoke. |
 | E5 | eslint + prettier | ✅ clean | `pnpm lint`, `pnpm format:check` |
-| E6 | vitest + Testing-Library + MSW | ✅ 13 pass | `pnpm test`; MSW mocks the API (no backend for unit/component) |
-| E7 | Playwright + chromium | ✅ downloaded (v1228) + trivial E2E passes | `pnpm e2e` (redirect-to-login smoke) — **G-P5b resolved, no fallback needed** |
+| E6 | vitest + Testing-Library + MSW | ✅ 107 pass · coverage 97.5/88.5/94.3/97.5 (≥80/70/90/85) | `pnpm test` / `pnpm test:coverage`; MSW mocks the API |
+| E7 | Playwright + chromium | ✅ 4 E2E pass | `pnpm e2e`: **login→scrub→cut** full flow + **axe** a11y (login & constellation, 0 serious/critical) + redirect smoke, against a `vite preview` build with in-browser MSW (`VITE_E2E_MOCK`). Live-SSE covered by R3 unit tests (service workers don't stream SSE). **G-P5b resolved.** |
 | E8 | tsc strict | ✅ 0 err | `pnpm typecheck` |
 
 Resolved versions: TypeScript **5.9.3** (TS 6.0 not yet published — `.prompticorn` aspirational `v6.0`

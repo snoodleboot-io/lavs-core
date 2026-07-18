@@ -1,16 +1,6 @@
 export { API_BASE, http } from './http';
 
-export { createProduct, getProduct, getTimeline, listProducts } from './products';
-export type { CreateProductInput } from './products';
-
-export {
-  createComponent,
-  createVersion,
-  listComponents,
-  listVersions,
-  rollbackVersion,
-} from './components';
-export type { CreateComponentInput, CreateVersionInput } from './components';
+export { getTimeline, listProducts } from './products';
 
 export { cutRelease, getRelease, listReleases } from './releases';
 export type { CutReleaseInput } from './releases';

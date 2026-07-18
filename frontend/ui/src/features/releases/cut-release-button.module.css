@@ -1,0 +1,73 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.button {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--meridian);
+  color: #1a1402;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: linear-gradient(180deg, #ffe49a, #ffce5e);
+  border-radius: var(--radius-sm);
+  padding: 11px;
+  cursor: pointer;
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.2s ease;
+}
+
+.button:hover:not(:disabled) {
+  box-shadow: 0 0 26px var(--meridian-glow);
+  transform: translateY(-1px);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* "Crystallize" flash — a brief luminous pulse over the button on a successful cut. */
+.flashing {
+  animation: crystallize 0.42s ease-out;
+}
+
+@keyframes crystallize {
+  0% {
+    box-shadow: 0 0 0 0 var(--meridian-glow);
+  }
+  55% {
+    box-shadow: 0 0 34px 6px var(--meridian-glow);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 211, 107, 0);
+  }
+}
+
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+
+  .flashing {
+    animation: none;
+  }
+}

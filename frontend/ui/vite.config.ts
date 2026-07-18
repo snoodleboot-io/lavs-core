@@ -42,6 +42,9 @@ export default defineConfig({
         'src/test/**',
         'src/mocks/**',
         'src/**/*.d.ts',
+        // Pure type declarations (erased at compile time) and test-only utilities.
+        'src/types/domain.ts',
+        'src/features/live/fake-event-source.ts',
       ],
       thresholds: {
         lines: 80,
