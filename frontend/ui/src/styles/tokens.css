@@ -1,0 +1,84 @@
+/* Observatory design tokens — the visual authority (docs/design/UI_CONCEPT.md),
+   ported from frontend/ui/mockups/constellation.html. Dark canvas, per-component hue,
+   mono for versions, a luminous meridian. */
+
+:root {
+  /* canvas */
+  --bg: #05070d;
+  --bg2: #0a0f1c;
+  --ink: #e9eefb;
+  --muted: #7c89a6;
+  --line: #1c2740;
+
+  /* panels */
+  --panel: rgba(18, 25, 43, 0.66);
+  --panel-brd: rgba(120, 150, 210, 0.16);
+  --panel-solid: #0c1322;
+
+  /* the meridian — a candidate release */
+  --meridian: #ffd36b;
+  --meridian-glow: rgba(255, 211, 107, 0.55);
+
+  /* signals (non-color-only cues pair with icons/shape) */
+  --good: #7cffb0;
+  --danger: #ff6b81;
+  --warn: #ffd166;
+
+  /* component hues (also enumerated in src/lib/palette.ts) */
+  --hue-service: #5ad1ff;
+  --hue-ui: #b78cff;
+  --hue-library: #7cffb0;
+  --hue-cli: #ffd166;
+
+  /* type */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* rhythm */
+  --radius: 16px;
+  --radius-sm: 11px;
+  --gap: 14px;
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--meridian);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 700px at 78% -10%, #16213f55, transparent 60%),
+    radial-gradient(900px 600px at 0% 110%, #1a123a55, transparent 55%),
+    var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 var(--font-sans);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* keyboard-first: a visible, high-contrast focus ring everywhere */
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

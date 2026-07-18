@@ -1,0 +1,51 @@
+.card {
+  border: 1px solid var(--panel-brd);
+  border-radius: var(--radius);
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  padding: 14px;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.tick {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pv {
+  margin-top: 10px;
+}
+
+.pvLabel {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.pvValue {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
+  color: var(--meridian);
+  text-shadow: 0 0 24px var(--meridian-glow);
+}

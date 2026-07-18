@@ -1,0 +1,36 @@
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.label {
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.select {
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  padding: 8px 12px;
+  font: inherit;
+}
+
+.select:focus-visible {
+  border-color: var(--meridian);
+  outline: var(--focus-ring);
+}
+
+.count {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.status {
+  color: var(--muted);
+  font-size: 13px;
+}

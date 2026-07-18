@@ -1,0 +1,136 @@
+/* Observatory look — dark canvas, per-component hue, luminous meridian.
+   Tokens come from src/styles/tokens.css (imported globally). */
+
+.stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  background: linear-gradient(180deg, rgba(13, 19, 34, 0.7), rgba(7, 11, 20, 0.7));
+  border: 1px solid var(--panel-brd);
+  border-radius: var(--radius);
+}
+
+/* lanes */
+.laneBase {
+  stroke: #0f1830;
+  stroke-width: 1;
+}
+
+.laneLabel {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+}
+
+.nowLabel {
+  fill: #48597d;
+  font-size: 11px;
+  font-family: var(--font-sans);
+}
+
+/* streams */
+.streamLine {
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0.32;
+}
+
+/* constellation connectors from pinned station to the meridian */
+.connectorLine {
+  stroke-width: 1.5;
+  stroke-dasharray: 1 4;
+  opacity: 0.5;
+}
+
+.connectorDot {
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+/* stations */
+.station {
+  transition: opacity 0.2s ease;
+}
+
+.stationDot {
+  stroke-width: 2;
+  fill: var(--panel-solid);
+  cursor: pointer;
+}
+
+.stationLabel {
+  fill: #9fb0d6;
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.stationPinned .stationDot {
+  filter: drop-shadow(0 0 5px currentColor);
+}
+
+.stationPinned .stationLabel {
+  opacity: 1;
+}
+
+.stationUnreached {
+  opacity: 0.35;
+}
+
+.stationUnreached .stationLabel {
+  opacity: 0.25;
+}
+
+/* freshly created — pulse for emphasis */
+.stationFresh .stationDot {
+  animation: station-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes station-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* rolled back — recede and strike through */
+.stationRolledBack {
+  opacity: 0.4;
+}
+
+.stationRolledBack .stationLabel {
+  text-decoration: line-through;
+}
+
+/* meridian */
+.meridian {
+  cursor: ew-resize;
+  outline: none;
+}
+
+.meridian:focus-visible .meridianHandle {
+  filter: drop-shadow(0 0 6px var(--meridian));
+}
+
+.meridianLine {
+  stroke: var(--meridian);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 7px var(--meridian-glow));
+}
+
+.meridianHandle {
+  fill: var(--meridian);
+  filter: drop-shadow(0 0 7px var(--meridian-glow));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stationFresh .stationDot {
+    animation: none;
+  }
+
+  .station {
+    transition: none;
+  }
+}

@@ -1,3 +1,28 @@
+# P5 Environment Manifest — 2026-07-12, branch `feat/19-p5-frontend`. **Gate: GREEN.**
+
+First **frontend** environment. All FE-local under `frontend/ui`; backend untouched. Run commands
+from `frontend/ui`.
+
+| # | Service | Status | Verify |
+|---|---|---|---|
+| E1 | Node 20 / pnpm | ✅ node 20.20.2 · pnpm 10.33.4 | `node -v`, `pnpm -v` |
+| E2 | Vite/React/TS scaffold + `pnpm install` | ✅ | `pnpm build` clean (tsc --noEmit + vite build; 122 modules, ~107 kB gzip) |
+| E3 | Vite dev server | ✅ :5173 | `pnpm dev`; proxy `/api` → backend `:8001` (same-origin so the session cookie flows) |
+| E4 | Uvicorn backend (DuckDB) + seed | ⚠ not required for CI | API verified complete vs contract (`/meta`,`/auth/*`,`/timeline`,`/events`,releases). E2E runs against in-browser MSW instead of a seeded backend (DuckDB single-writer + signup/verify seeding is disproportionate); the real-backend path stays proven by the redirect smoke. |
+| E5 | eslint + prettier | ✅ clean | `pnpm lint`, `pnpm format:check` |
+| E6 | vitest + Testing-Library + MSW | ✅ 107 pass · coverage 97.5/88.5/94.3/97.5 (≥80/70/90/85) | `pnpm test` / `pnpm test:coverage`; MSW mocks the API |
+| E7 | Playwright + chromium | ✅ 4 E2E pass | `pnpm e2e`: **login→scrub→cut** full flow + **axe** a11y (login & constellation, 0 serious/critical) + redirect smoke, against a `vite preview` build with in-browser MSW (`VITE_E2E_MOCK`). Live-SSE covered by R3 unit tests (service workers don't stream SSE). **G-P5b resolved.** |
+| E8 | tsc strict | ✅ 0 err | `pnpm typecheck` |
+
+Resolved versions: TypeScript **5.9.3** (TS 6.0 not yet published — `.prompticorn` aspirational `v6.0`
+tracked as a later bump), Vite 6.4.3, React 19.2, Vitest 3.2, MSW 2.15, React Router 7, TanStack Query 5.
+New toolchain (G-P5a, all FE-local): React · Vite · @vitejs/plugin-react · TypeScript · vitest ·
+@testing-library/{react,jest-dom,user-event} · MSW · @playwright/test · TanStack Query · React Router ·
+eslint (flat) + typescript-eslint · prettier · axe-core.
+Readiness: `P5_ENV_READY=GREEN`.
+
+---
+
 # P0 Environment Manifest (live)
 
 Stood up by the env-setup gate on 2026-06-25, branch `feat/14-p0-stabilize`. The pipeline owns
