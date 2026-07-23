@@ -8,6 +8,9 @@ Security posture:
   nothing about account existence (no enumeration).
 """
 
+import duckdb
+import psycopg.errors
+
 from app.auth.auth_settings import AuthSettings
 from app.auth.password_hasher import PasswordHasher
 from app.auth.signup.verification_email import VerificationEmail
@@ -22,6 +25,10 @@ from app.errors.domain_not_allowed_error import DomainNotAllowedError
 from app.mail.mailer import Mailer
 from app.models.requests.signup_model import SignupModel
 from app.models.types.ulid_id import new_ulid
+
+# The single conflict message for a taken address — identical on the pre-check
+# and insert-race paths so the response never reveals which one fired.
+_DUPLICATE_EMAIL_MESSAGE = "This email address cannot be registered."
 
 
 class SignupService:
@@ -90,14 +97,21 @@ class SignupService:
 
         password_hash = self._password_hasher.hash_password(model.password)
         user_id = new_ulid()
-        await self._users.create_user(
-            conn,
-            user_id=user_id,
-            email=email,
-            password_hash=password_hash,
-            status=UserStatus.PENDING,
-            edition=settings.edition(),
-        )
+        try:
+            await self._users.create_user(
+                conn,
+                user_id=user_id,
+                email=email,
+                password_hash=password_hash,
+                status=UserStatus.PENDING,
+                edition=settings.edition(),
+            )
+        except duckdb.ConstraintException, psycopg.errors.UniqueViolation:
+            # A concurrent sign-up for the same address won the insert race
+            # after our availability pre-check; surface the same 409 as the
+            # pre-check path. ``from None``: the driver's message may embed row
+            # values and must not chain into the generic conflict response.
+            raise ConflictError(message=_DUPLICATE_EMAIL_MESSAGE) from None
 
         raw_token = self._token_service.generate_token()
         await self._verification_tokens.issue(
@@ -145,4 +159,4 @@ class SignupService:
         """
         existing = await self._users.get_user_by_email(conn, email)
         if existing is not None:
-            raise ConflictError(message="This email address cannot be registered.")
+            raise ConflictError(message=_DUPLICATE_EMAIL_MESSAGE)

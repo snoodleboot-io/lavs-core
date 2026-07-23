@@ -3,7 +3,7 @@
 from unittest import IsolatedAsyncioTestCase
 
 from app.events.domain_event import DomainEvent
-from app.events.event_bus import EventBus
+from app.events.event_bus import QUEUE_MAXSIZE, EventBus
 from app.events.event_type import EventType
 
 PRODUCT_A = "01AAAAAAAAAAAAAAAAAAAAAAAA"
@@ -124,3 +124,71 @@ class TestEventBus(IsolatedAsyncioTestCase):
         assert staying.qsize() == 1
         assert leaving.empty()
         assert bus.subscriber_count(PRODUCT_A) == 1
+
+
+class TestEventBusBackpressure(IsolatedAsyncioTestCase):
+    """Bounded queues with drop-oldest overflow (LAV-52 L-6)."""
+
+    async def test_subscriber_queue_is_bounded(self) -> None:
+        """A fresh subscriber queue carries the configured bound."""
+        # Arrange
+        bus = EventBus()
+
+        # Act
+        queue = bus.subscribe(PRODUCT_A)
+
+        # Assert
+        assert queue.maxsize == QUEUE_MAXSIZE
+
+    async def test_overflow_drops_oldest_event(self) -> None:
+        """Publishing past the bound evicts the oldest event, keeps the newest."""
+        # Arrange
+        bus = EventBus()
+        queue = bus.subscribe(PRODUCT_A)
+        events = [_event(PRODUCT_A, component_id=f"c{index}") for index in range(QUEUE_MAXSIZE + 1)]
+
+        # Act: one publish more than the queue can hold.
+        for event in events:
+            await bus.publish(event)
+
+        # Assert: oldest (events[0]) was dropped; order otherwise preserved.
+        assert queue.qsize() == QUEUE_MAXSIZE
+        drained = [queue.get_nowait() for _ in range(queue.qsize())]
+        assert drained[0] is events[1]
+        assert drained[-1] is events[-1]
+        assert events[0] not in drained
+
+    async def test_publish_to_full_queue_never_raises(self) -> None:
+        """The publisher completes normally well past the overflow point."""
+        # Arrange
+        bus = EventBus()
+        queue = bus.subscribe(PRODUCT_A)
+
+        # Act: keep publishing well past capacity — must never raise or block.
+        for index in range(QUEUE_MAXSIZE + 10):
+            await bus.publish(_event(PRODUCT_A, component_id=f"c{index}"))
+
+        # Assert: the queue holds exactly the newest QUEUE_MAXSIZE events.
+        assert queue.qsize() == QUEUE_MAXSIZE
+        newest = queue.get_nowait()
+        assert newest.data["component_id"] == "c10"
+
+    async def test_overflow_on_one_queue_does_not_affect_sibling(self) -> None:
+        """A stalled subscriber overflowing does not disturb a healthy sibling."""
+        # Arrange
+        bus = EventBus()
+        stalled = bus.subscribe(PRODUCT_A)
+        healthy = bus.subscribe(PRODUCT_A)
+        for index in range(QUEUE_MAXSIZE):
+            await bus.publish(_event(PRODUCT_A, component_id=f"fill{index}"))
+        while not healthy.empty():
+            healthy.get_nowait()
+
+        # Act: the next publish overflows only the stalled queue.
+        final = _event(PRODUCT_A, component_id="final")
+        await bus.publish(final)
+
+        # Assert
+        assert stalled.qsize() == QUEUE_MAXSIZE
+        assert healthy.qsize() == 1
+        assert healthy.get_nowait() is final

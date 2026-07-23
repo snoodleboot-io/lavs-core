@@ -1,5 +1,9 @@
 """Request body for cutting a release."""
 
+from typing import Annotated
+
+from annotated_types import MaxLen
+
 from app.models.requests.request_model import RequestModel
 
 
@@ -12,8 +16,8 @@ class CutReleaseModel(RequestModel):
     minor, starting from the product's configured base).
     """
 
-    label: str | None = None
-    notes: str | None = None
+    label: Annotated[str, MaxLen(256)] | None = None
+    notes: Annotated[str, MaxLen(4096)] | None = None
 
     model_config = {
         "json_schema_extra": {"examples": [{"label": "Aurora 5.1", "notes": "optional"}]}

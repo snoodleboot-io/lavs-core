@@ -51,6 +51,37 @@ class TestCaptureMailer:
         assert result.subject == "Second"
         assert mailer.last_for("missing@example.com") is None
 
+    def test_ring_buffer_evicts_oldest_at_capacity(self) -> None:
+        """At capacity, each new send evicts the oldest capture."""
+        # Arrange
+        mailer = CaptureMailer(max_messages=3)
+        for index in range(3):
+            mailer.send(to=f"user{index}@example.com", subject=f"S{index}", body=str(index))
+
+        # Act
+        mailer.send(to="user3@example.com", subject="S3", body="3")
+
+        # Assert — capped at 3, oldest gone, newest present, order preserved.
+        retained = mailer.messages()
+        assert len(retained) == 3
+        assert [message.subject for message in retained] == ["S1", "S2", "S3"]
+        assert mailer.last_for("user0@example.com") is None
+
+    def test_default_capacity_is_bounded_at_100(self) -> None:
+        """The default ring never grows past 100 retained messages."""
+        # Arrange
+        mailer = CaptureMailer()
+
+        # Act
+        for index in range(150):
+            mailer.send(to="user@example.com", subject=f"S{index}", body=str(index))
+
+        # Assert
+        assert len(mailer.messages()) == 100
+        last = mailer.last_message()
+        assert last is not None
+        assert last.subject == "S149"
+
     def test_clear_empties_the_buffer(self) -> None:
         """``clear`` discards all captured messages."""
         # Arrange

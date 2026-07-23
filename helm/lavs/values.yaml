@@ -38,16 +38,51 @@ podAnnotations: {}
 # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 podLabels: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+# Pod-level security context. The image runs as the dedicated non-root user
+# uid/gid 10001 (see Dockerfile); fsGroup matches so any mounted volumes are
+# group-writable by the app.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+# Container-level security context.
+# readOnlyRootFilesystem stays false because the embedded DuckDB backend writes
+# its database file (and WAL) inside the container at /app/app/test.db by
+# default; making the root filesystem read-only would break /ready unless the
+# DB path is redirected onto a mounted volume (use `volumes`/`volumeMounts`
+# plus app config to relocate the DB, then flip this to true).
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+# Authentication configuration (LAV-50). With neither `modes` nor `existingSecret`
+# set the API runs ANONYMOUS-WRITABLE — NOTES.txt prints a warning in that case.
+auth:
+  # Comma-separated auth modes injected as LAVS_AUTH_MODES (e.g. "password" or
+  # "password,apikey"). Empty disables authentication entirely.
+  modes: ""
+  # Name of an existing Kubernetes Secret whose keys are injected via envFrom
+  # (e.g. LAVS_API_KEY, LAVS_STYTCH_SECRET, LAVS_SESSION_TTL_SECONDS).
+  # Only rendered when set.
+  existingSecret: ""
+
+# Extra environment variables for the lavs container (name/value pairs).
+# Auth-adjacent knobs the app understands (add here or in auth.existingSecret):
+#   LAVS_AUTH_RATE_LIMIT: requests per window on auth endpoints; unset/0 = rate
+#     limiting DISABLED (the default). Suggested production value: "20".
+#   LAVS_AUTH_RATE_WINDOW_SECONDS: window size for the limit (default 60).
+#   LAVS_AUTH_RATE_TRUST_FORWARDED_FOR: default off; only enable behind a
+#     trusted reverse proxy that sets X-Forwarded-For.
+extraEnv: []
+# - name: LAVS_AUTH_RATE_LIMIT
+#   value: "20"
+# - name: LAVS_AUTH_RATE_WINDOW_SECONDS
+#   value: "60"
 
 # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:

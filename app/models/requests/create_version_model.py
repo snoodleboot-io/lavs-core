@@ -3,7 +3,7 @@
 import re
 from typing import Annotated
 
-from annotated_types import Ge
+from annotated_types import Ge, MaxLen
 from pydantic import computed_field, field_validator
 
 from app.models.requests.request_model import RequestModel
@@ -19,8 +19,8 @@ class CreateVersionModel(RequestModel):
     """
 
     component_id: UlidId
-    version: str
-    prerelease: str | None = None
+    version: Annotated[str, MaxLen(256)]
+    prerelease: Annotated[str, MaxLen(256)] | None = None
 
     @field_validator("version", mode="before")
     @classmethod

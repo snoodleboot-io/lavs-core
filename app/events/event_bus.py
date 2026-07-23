@@ -8,16 +8,27 @@ created in the FastAPI lifespan and stored on ``app.state.event_bus``.
 Concurrency: all mutation of the subscriber registry happens in synchronous
 methods with no ``await`` between read and write, so the single-threaded event
 loop already serialises them; publishing uses :meth:`asyncio.Queue.put_nowait`
-on unbounded queues, which never blocks and so never yields mid-fan-out.
+(with synchronous drop-oldest eviction on overflow), which never blocks and so
+never yields mid-fan-out.
+
+Backpressure policy: each subscriber queue is bounded (:data:`QUEUE_MAXSIZE`).
+When a slow or stalled consumer lets its queue fill up, the oldest queued event
+is evicted to make room for the newest — the publisher never blocks and never
+raises. A consumer that missed events simply re-syncs the full state via the
+REST endpoints (SSE frames are notifications, not the source of truth), so
+dropping stale frames is safe.
 """
 
 import asyncio
 
 from app.events.domain_event import DomainEvent
 
+QUEUE_MAXSIZE = 256
+"""Per-subscriber queue bound; overflow evicts the oldest queued event."""
+
 
 class EventBus:
-    """Per-product fan-out of domain events to subscriber queues."""
+    """Per-product fan-out of domain events to bounded subscriber queues."""
 
     def __init__(self) -> None:
         """Create an event bus with no subscribers."""
@@ -26,15 +37,42 @@ class EventBus:
     async def publish(self, event: DomainEvent) -> None:
         """Deliver ``event`` to every queue subscribed to its product.
 
-        Delivery is non-blocking: each subscriber has an unbounded queue, so a
-        slow or disconnected consumer cannot stall the publisher. Products with
-        no subscribers are a no-op.
+        Delivery is non-blocking and never raises: each subscriber queue is
+        bounded, and when one is full the oldest queued event is dropped to
+        make room for this one (drop-oldest). A slow or disconnected consumer
+        therefore cannot stall the publisher; it re-syncs via REST after a
+        gap. Products with no subscribers are a no-op.
 
         Args:
             event: The domain event to fan out.
         """
         for queue in tuple(self._subscribers.get(event.product_id, ())):
+            try:
+                queue.put_nowait(event)
+            except asyncio.QueueFull:
+                self._evict_oldest_and_put(queue, event)
+
+    @staticmethod
+    def _evict_oldest_and_put(queue: asyncio.Queue[DomainEvent], event: DomainEvent) -> None:
+        """Drop the oldest queued event, then enqueue ``event``.
+
+        Runs synchronously with no ``await``, so no consumer can interleave
+        between the eviction and the put on the single-threaded event loop.
+        Both fallbacks are defensive: after evicting one item from a full
+        bounded queue the put cannot fail, and an empty queue cannot be full.
+
+        Args:
+            queue: The full subscriber queue to make room in.
+            event: The new event to enqueue after eviction.
+        """
+        try:
+            queue.get_nowait()
+        except asyncio.QueueEmpty:  # pragma: no cover - full queue is never empty
+            pass
+        try:
             queue.put_nowait(event)
+        except asyncio.QueueFull:  # pragma: no cover - room was just made above
+            pass
 
     def subscribe(self, product_id: str) -> asyncio.Queue[DomainEvent]:
         """Register and return a fresh queue for ``product_id``'s events.
@@ -46,9 +84,10 @@ class EventBus:
             product_id: The product whose events the caller wants.
 
         Returns:
-            A new unbounded queue that will receive that product's events.
+            A new bounded queue (:data:`QUEUE_MAXSIZE`) that will receive that
+            product's events; on overflow its oldest event is dropped.
         """
-        queue: asyncio.Queue[DomainEvent] = asyncio.Queue()
+        queue: asyncio.Queue[DomainEvent] = asyncio.Queue(maxsize=QUEUE_MAXSIZE)
         self._subscribers.setdefault(product_id, set()).add(queue)
         return queue
 

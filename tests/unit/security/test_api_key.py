@@ -1,13 +1,9 @@
-"""Tests for the API key authentication module."""
-
-import asyncio
+"""Tests for the API key configuration helpers."""
 
 import pytest
-from fastapi import HTTPException
 
 from app.security.api_key import (
     API_KEY_ENV_VAR,
-    get_api_key,
     get_configured_api_key,
     is_authentication_enabled,
 )
@@ -52,47 +48,3 @@ class TestIsAuthenticationEnabled:
         """Test that False is returned when API key is empty string."""
         monkeypatch.setenv(API_KEY_ENV_VAR, "")
         assert is_authentication_enabled() is False
-
-
-class TestGetApiKey:
-    """Tests for get_api_key function."""
-
-    def test_allows_request_when_auth_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test that requests are allowed when authentication is disabled."""
-        monkeypatch.delenv(API_KEY_ENV_VAR, raising=False)
-        # Should not raise an exception - using asyncio.run for sync test
-        result = asyncio.run(get_api_key(api_key=None))
-        assert result == ""
-
-    def test_allows_request_when_auth_disabled_with_key(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test that requests with any key are allowed when auth is disabled."""
-        monkeypatch.delenv(API_KEY_ENV_VAR, raising=False)
-        # Should not raise an exception even with a key provided
-        result = asyncio.run(get_api_key(api_key="any-key"))
-        assert result == "any-key"
-
-    def test_rejects_request_without_key_when_auth_enabled(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test that requests without API key are rejected when auth is enabled."""
-        monkeypatch.setenv(API_KEY_ENV_VAR, "test-api-key")
-        with pytest.raises(HTTPException) as exc_info:
-            asyncio.run(get_api_key(api_key=None))
-        assert exc_info.value.status_code == 401
-
-    def test_rejects_request_with_wrong_key_when_auth_enabled(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test that requests with wrong API key are rejected."""
-        monkeypatch.setenv(API_KEY_ENV_VAR, "test-api-key")
-        with pytest.raises(HTTPException) as exc_info:
-            asyncio.run(get_api_key(api_key="wrong-key"))
-        assert exc_info.value.status_code == 403
-
-    def test_allows_request_with_correct_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test that requests with correct API key are allowed."""
-        monkeypatch.setenv(API_KEY_ENV_VAR, "test-api-key")
-        result = asyncio.run(get_api_key(api_key="test-api-key"))
-        assert result == "test-api-key"

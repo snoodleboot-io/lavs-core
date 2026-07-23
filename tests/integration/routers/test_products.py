@@ -79,6 +79,18 @@ class TestCreateProduct:
         # Assert
         assert response.status_code == 422
 
+    def test_over_long_name_returns_422_envelope(self, client: TestClient) -> None:
+        """A name over the 256-character cap yields the uniform 422 envelope."""
+        # Act
+        response = client.post("/products", json={"name": "n" * 257})
+
+        # Assert
+        assert response.status_code == 422
+        error = response.json()["error"]
+        assert error["code"] == "validation_error"
+        assert error["message"] == "Request validation failed."
+        assert "errors" in error["details"]
+
 
 class TestGetProduct:
     """``GET /products/{product_id}``."""

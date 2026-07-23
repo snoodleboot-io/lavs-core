@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from annotated_types import MinLen
+from annotated_types import MaxLen, MinLen
 
 from app.models.requests.request_model import RequestModel
 
@@ -17,6 +17,6 @@ class StytchCallbackModel(RequestModel):
     The token is never logged or persisted.
     """
 
-    stytch_token: Annotated[str, MinLen(1)]
+    stytch_token: Annotated[str, MinLen(1), MaxLen(4096)]
 
     model_config = {"json_schema_extra": {"examples": [{"stytch_token": "WJtR5BCy38..."}]}}

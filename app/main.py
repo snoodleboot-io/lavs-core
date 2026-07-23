@@ -20,6 +20,7 @@ from app.mail.capture_mailer import CaptureMailer
 from app.openapi.app_metadata import AppMetadata
 from app.openapi.openapi_customizer import OpenApiCustomizer
 from app.routers import auth, components, events, meta, products, releases, timeline, versions
+from app.security.rate_limit_middleware import RateLimitMiddleware
 
 logger = logging.getLogger("lavs-api")
 
@@ -101,6 +102,12 @@ app = FastAPI(
     version=AppMetadata.version(),
 )
 register_error_handlers(app)
+
+# Per-IP rate limiting over the unauthenticated /auth/* bootstrap surface.
+# Always wired, but inert until LAVS_AUTH_RATE_LIMIT is set to a positive
+# value (default posture is disabled — see RateLimitSettings), so bare
+# TestClient suites and OSS quick-starts are unaffected out of the box.
+app.add_middleware(RateLimitMiddleware)
 
 
 @app.get("/")

@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from annotated_types import MinLen
+from annotated_types import MaxLen, MinLen
 
 from app.models.requests.request_model import RequestModel
 
@@ -15,6 +15,6 @@ class VerifyModel(RequestModel):
     ``docs/design/API_CONTRACT.md`` §2.
     """
 
-    token: Annotated[str, MinLen(1)]
+    token: Annotated[str, MinLen(1), MaxLen(256)]
 
     model_config = {"json_schema_extra": {"examples": [{"token": "Xy8f…opaque-url-safe-token"}]}}

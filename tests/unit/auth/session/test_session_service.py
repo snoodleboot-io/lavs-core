@@ -1,5 +1,8 @@
 """Unit tests for :class:`SessionService` against an in-memory database."""
 
+import os
+import time
+from datetime import UTC, datetime, timedelta
 from unittest import IsolatedAsyncioTestCase
 
 import duckdb
@@ -62,13 +65,41 @@ class TestSessionService(IsolatedAsyncioTestCase):
         # Act
         self._service.create_session(self._conn, user_id=self._user_id, ttl_seconds=3600)
 
-        # Assert
+        # Assert — compare against a bound naive-UTC "now" (not the database's
+        # CURRENT_TIMESTAMP) so the check holds under any host time zone.
         row = self._conn.execute(
-            "SELECT expires_at > CURRENT_TIMESTAMP FROM sessions WHERE user_id = ?",
-            [self._user_id],
+            "SELECT expires_at > ? FROM sessions WHERE user_id = ?",
+            [datetime.now(UTC).replace(tzinfo=None), self._user_id],
         ).fetchone()
         assert row is not None
         assert row[0] is True
+
+    async def test_expiry_is_utc_even_under_shifted_local_timezone(self) -> None:
+        """A monkeypatched local TZ never shifts the stored (UTC) expiry."""
+        # Arrange
+        await self._seed_user()
+        saved_tz = os.environ.get("TZ")
+        os.environ["TZ"] = "Pacific/Kiritimati"  # UTC+14 — the maximal shift
+        time.tzset()
+        try:
+            # Act
+            self._service.create_session(self._conn, user_id=self._user_id, ttl_seconds=3600)
+        finally:
+            if saved_tz is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = saved_tz
+            time.tzset()
+
+        # Assert — the stored expiry is naive UTC + ttl, not local time + ttl.
+        row = self._conn.execute(
+            "SELECT expires_at FROM sessions WHERE user_id = ?", [self._user_id]
+        ).fetchone()
+        assert row is not None
+        stored: datetime = row[0]
+        assert stored.tzinfo is None
+        expected = datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=3600)
+        assert abs((stored - expected).total_seconds()) < 5
 
     async def test_lookup_active_returns_user_id(self) -> None:
         """A live session resolves to its owning user id."""

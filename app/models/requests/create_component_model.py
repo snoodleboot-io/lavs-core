@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from annotated_types import MinLen
+from annotated_types import MaxLen, MinLen
 
 from app.models.enums.component_kind import ComponentKind
 from app.models.requests.request_model import RequestModel
@@ -16,7 +16,7 @@ class CreateComponentModel(RequestModel):
     """
 
     product_id: UlidId
-    name: Annotated[str, MinLen(1)]
+    name: Annotated[str, MinLen(1), MaxLen(256)]
     kind: ComponentKind
 
     model_config = {

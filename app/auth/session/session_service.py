@@ -6,13 +6,31 @@ mints one, stores only its SHA-256 hash together with a TTL-derived
 present the raw token, which is re-hashed and matched against the stored hash;
 an expired row never matches, so a lapsed cookie authenticates nobody. Every
 statement binds its values through ``?`` placeholders.
+
+Wall-clock time is always taken in UTC (:func:`_utc_now`) and bound as a
+timezone-naive value, because the ``sessions`` columns are naive ``TIMESTAMP``
+on both DuckDB and PostgreSQL: a naive-UTC bind round-trips verbatim on both
+backends, whereas a tz-aware bind would be cast through the session time zone.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.auth.token_service import TokenService
 from app.connections.db_session import DbSession
 from app.models.types.ulid_id import new_ulid
+
+
+def _utc_now() -> datetime:
+    """Return the current UTC wall-clock time as a naive ``datetime``.
+
+    Computed as :func:`datetime.now` in UTC with ``tzinfo`` stripped so the
+    value binds into the naive ``TIMESTAMP`` columns identically on DuckDB and
+    PostgreSQL, independent of the host or database session time zone.
+
+    Returns:
+        The current instant in UTC, timezone-naive.
+    """
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class SessionService:
@@ -41,7 +59,7 @@ class SessionService:
         """
         token = self._token_service.generate_token()
         token_hash = self._token_service.hash_token(token)
-        expires_at = datetime.now() + timedelta(seconds=ttl_seconds)
+        expires_at = _utc_now() + timedelta(seconds=ttl_seconds)
         conn.execute(
             "INSERT INTO sessions (id, user_id, token_hash, expires_at) VALUES (?, ?, ?, ?)",
             [new_ulid(), user_id, token_hash, expires_at],
@@ -62,7 +80,7 @@ class SessionService:
         token_hash = self._token_service.hash_token(token)
         row = conn.execute(
             "SELECT user_id FROM sessions WHERE token_hash = ? AND expires_at > ?",
-            [token_hash, datetime.now()],
+            [token_hash, _utc_now()],
         ).fetchone()
         if row is None:
             return None

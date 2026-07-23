@@ -11,6 +11,7 @@ from app.errors.error_code import ErrorCode
 from app.errors.forbidden_error import ForbiddenError
 from app.errors.handlers import register_error_handlers
 from app.errors.not_found_error import NotFoundError
+from app.errors.rate_limited_error import RateLimitedError
 
 
 def _build_app() -> FastAPI:
@@ -37,6 +38,14 @@ def _build_app() -> FastAPI:
     @app.get("/teapot")
     def _teapot() -> None:
         raise HTTPException(status_code=418, detail="i am a teapot")
+
+    @app.get("/rate-limited")
+    def _rate_limited() -> None:
+        raise RateLimitedError("too many requests", {"retry_after_seconds": 60})
+
+    @app.get("/http-429")
+    def _http_429() -> None:
+        raise HTTPException(status_code=429, detail="slow down")
 
     return app
 
@@ -86,6 +95,18 @@ class TestDomainErrorEnvelopes:
         assert body["error"]["message"] == "not permitted"
         assert body["error"]["details"] == {"resource": "release"}
 
+    def test_rate_limited_returns_429_envelope(self, client: TestClient) -> None:
+        """``RateLimitedError`` serializes as a 429 ``rate_limited`` envelope."""
+        # Act
+        response = client.get("/rate-limited")
+
+        # Assert
+        assert response.status_code == 429
+        body = response.json()
+        assert body["error"]["code"] == ErrorCode.RATE_LIMITED.value
+        assert body["error"]["message"] == "too many requests"
+        assert body["error"]["details"] == {"retry_after_seconds": 60}
+
 
 class TestFrameworkErrorEnvelopes:
     """Framework validation and HTTP errors map to the envelope too."""
@@ -111,3 +132,14 @@ class TestFrameworkErrorEnvelopes:
         body = response.json()
         assert body["error"]["code"] == ErrorCode.HTTP_ERROR.value
         assert body["error"]["message"] == "i am a teapot"
+
+    def test_http_429_maps_to_rate_limited_code(self, client: TestClient) -> None:
+        """A framework 429 carries the specific ``rate_limited`` envelope code."""
+        # Act
+        response = client.get("/http-429")
+
+        # Assert
+        assert response.status_code == 429
+        body = response.json()
+        assert body["error"]["code"] == ErrorCode.RATE_LIMITED.value
+        assert body["error"]["message"] == "slow down"

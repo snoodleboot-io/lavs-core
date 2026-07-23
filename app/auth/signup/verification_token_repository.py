@@ -4,14 +4,29 @@ Tokens are stored **only** as their SHA-256 hash (the raw token is never
 persisted), carry a Python-computed expiry, and are single-use: a consumed row is
 stamped with ``consumed_at`` and never matched again. Every statement binds its
 values through ``?`` placeholders — never string interpolation. Wall-clock time
-is taken from the process clock (:func:`datetime.now`) and bound as a parameter,
-matching :class:`~app.auth.session.session_service.SessionService` so expiry is
-expressed identically — and dialect-neutrally — across DuckDB and PostgreSQL.
+is always taken in UTC (:func:`_utc_now`) and bound as a timezone-naive value,
+matching :class:`~app.auth.session.session_service.SessionService`: the
+``email_verification_tokens`` columns are naive ``TIMESTAMP`` on both DuckDB and
+PostgreSQL, so a naive-UTC bind round-trips verbatim on both backends, whereas a
+tz-aware bind would be cast through the session time zone.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.connections.db_session import DbSession
+
+
+def _utc_now() -> datetime:
+    """Return the current UTC wall-clock time as a naive ``datetime``.
+
+    Computed as :func:`datetime.now` in UTC with ``tzinfo`` stripped so the
+    value binds into the naive ``TIMESTAMP`` columns identically on DuckDB and
+    PostgreSQL, independent of the host or database session time zone.
+
+    Returns:
+        The current instant in UTC, timezone-naive.
+    """
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class VerificationTokenRepository:
@@ -26,9 +41,10 @@ class VerificationTokenRepository:
     ) -> None:
         """Insert a verification-token row with a Python-computed expiry.
 
-        The expiry is computed in Python (``datetime.now() + ttl``) and bound as
-        a parameter rather than derived with an in-SQL interval expression, so the
-        statement parses identically on DuckDB and PostgreSQL.
+        The expiry is computed in Python (UTC now + ttl, bound naive) rather
+        than derived with an in-SQL interval expression, so the statement parses
+        identically on DuckDB and PostgreSQL and never depends on either
+        backend's session time zone.
 
         Args:
             conn: The live database session.
@@ -37,7 +53,7 @@ class VerificationTokenRepository:
             user_id: The id of the pending user the token verifies.
             ttl_seconds: The token lifetime, added to the clock for expiry.
         """
-        expires_at = datetime.now() + timedelta(seconds=ttl_seconds)
+        expires_at = _utc_now() + timedelta(seconds=ttl_seconds)
         conn.execute(
             "INSERT INTO email_verification_tokens "
             "(token_hash, user_id, expires_at, consumed_at) "
@@ -66,7 +82,7 @@ class VerificationTokenRepository:
             "FROM email_verification_tokens "
             "WHERE token_hash = ? AND consumed_at IS NULL "
             "AND expires_at > ?",
-            [token_hash, datetime.now()],
+            [token_hash, _utc_now()],
         ).fetchone()
 
     async def consume(self, conn: DbSession, token_hash: str) -> None:
@@ -78,5 +94,5 @@ class VerificationTokenRepository:
         """
         conn.execute(
             "UPDATE email_verification_tokens SET consumed_at = ? WHERE token_hash = ?",
-            [datetime.now(), token_hash],
+            [_utc_now(), token_hash],
         )
