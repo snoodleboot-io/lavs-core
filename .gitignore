@@ -172,3 +172,6 @@ cython_debug/
 
 .idea/
 /app/test.db
+
+# Session-management working files (never committed, per .claude/conventions/core/general.md)
+.prompticorn/
