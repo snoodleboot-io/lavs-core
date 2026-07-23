@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from annotated_types import MinLen
+from annotated_types import MaxLen, MinLen
 from pydantic import field_validator
 
 from app.models.requests.request_model import RequestModel
@@ -18,8 +18,8 @@ class LoginModel(RequestModel):
     ``docs/design/API_CONTRACT.md`` §2.
     """
 
-    email: Annotated[str, MinLen(1)]
-    password: Annotated[str, MinLen(1)]
+    email: Annotated[str, MinLen(1), MaxLen(320)]
+    password: Annotated[str, MinLen(1), MaxLen(128)]
 
     @field_validator("email")
     @classmethod

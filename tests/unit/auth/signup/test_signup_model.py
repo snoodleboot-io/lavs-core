@@ -44,3 +44,26 @@ class TestSignupModel(TestCase):
 
         # Assert
         assert len(model.password) == SignupPolicy.MIN_PASSWORD_LENGTH
+
+    def test_maximum_length_password_is_accepted(self) -> None:
+        """A password exactly at the 128-character cap is accepted."""
+        # Act
+        model = SignupModel(email="engineer@example.com", password="a" * 128)
+
+        # Assert
+        assert len(model.password) == 128
+
+    def test_over_length_password_is_rejected(self) -> None:
+        """A password over the 128-character cap fails validation."""
+        # Act / Assert
+        with self.assertRaises(ValidationError):
+            SignupModel(email="engineer@example.com", password="a" * 129)
+
+    def test_over_length_email_is_rejected(self) -> None:
+        """An email over the 320-character RFC ceiling fails validation."""
+        # Arrange
+        email = "a" * 321 + "@example.com"
+
+        # Act / Assert
+        with self.assertRaises(ValidationError):
+            SignupModel(email=email, password=self._valid_password())

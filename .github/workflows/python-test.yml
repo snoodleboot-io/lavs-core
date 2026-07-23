@@ -32,3 +32,36 @@ jobs:
         run: uv run pyright app
       - name: Run tests
         run: uv run pytest -q
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    # Blocking gate. click was bumped to >= 8.3.3 (PYSEC-2026-2132) via the
+    # pyproject constraint-dependencies floor, so the audit runs clean.
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install Python 3.14
+        run: uv python install 3.14
+      - name: Audit locked runtime dependencies with pip-audit
+        # Explicit bash adds -o pipefail: a failed `uv export` must fail the
+        # gate, not hand pip-audit an empty stdin that passes vacuously.
+        shell: bash
+        run: uv export --format requirements-txt --no-dev --no-emit-project | uvx pip-audit -r /dev/stdin --strict
+
+  frontend-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Audit production dependencies with pnpm
+        working-directory: frontend/ui
+        env:
+          CI: "true"
+        run: pnpm audit --prod --audit-level high

@@ -41,6 +41,7 @@ constraint-dependencies = [
     "starlette>=1.3.1",  # DoS via form limits, SSRF/UNC, host-header poisoning
     "idna>=3.15",        # idna.encode() bypass of CVE-2024-3651 fix
     "pygments>=2.20.0",  # ReDoS in GUID regex
+    "click>=8.3.3",      # PYSEC-2026-2132 (found by the P8 CI pip-audit gate)
 ]
 
 [tool.ruff]

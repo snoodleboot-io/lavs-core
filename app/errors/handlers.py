@@ -24,6 +24,7 @@ _HTTP_STATUS_TO_CODE: dict[int, ErrorCode] = {
     status.HTTP_403_FORBIDDEN: ErrorCode.FORBIDDEN,
     status.HTTP_404_NOT_FOUND: ErrorCode.NOT_FOUND,
     status.HTTP_409_CONFLICT: ErrorCode.CONFLICT,
+    status.HTTP_429_TOO_MANY_REQUESTS: ErrorCode.RATE_LIMITED,
 }
 
 

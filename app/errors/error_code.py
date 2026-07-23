@@ -16,5 +16,6 @@ class ErrorCode(StrEnum):
     UNAUTHORIZED = "unauthorized"
     FORBIDDEN = "forbidden"
     DOMAIN_NOT_ALLOWED = "domain_not_allowed"
+    RATE_LIMITED = "rate_limited"
     HTTP_ERROR = "http_error"
     INTERNAL_ERROR = "internal_error"

@@ -44,6 +44,21 @@ spec:
             - name: http
               containerPort: {{ .Values.containerPort | default 8080 }}
               protocol: TCP
+          {{- if or .Values.auth.modes .Values.extraEnv }}
+          env:
+            {{- if .Values.auth.modes }}
+            - name: LAVS_AUTH_MODES
+              value: {{ .Values.auth.modes | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.auth.existingSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.auth.existingSecret }}
+          {{- end }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}

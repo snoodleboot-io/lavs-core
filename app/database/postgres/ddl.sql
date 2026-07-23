@@ -67,6 +67,10 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- expires_at / consumed_at on the two auth tables below are naive TIMESTAMP
+-- columns holding UTC instants: SessionService and VerificationTokenRepository
+-- compute time as datetime.now(UTC) with tzinfo stripped before binding, so
+-- values round-trip verbatim regardless of the host or session time zone.
 CREATE TABLE IF NOT EXISTS sessions (
     id VARCHAR PRIMARY KEY,
     user_id VARCHAR NOT NULL REFERENCES users(id),

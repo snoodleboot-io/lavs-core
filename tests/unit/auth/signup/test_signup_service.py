@@ -3,6 +3,7 @@
 from unittest import IsolatedAsyncioTestCase
 
 import duckdb
+import psycopg.errors
 
 from app.auth.auth_settings import AuthSettings
 from app.auth.password_hasher import PasswordHasher
@@ -16,6 +17,22 @@ from app.errors.conflict_error import ConflictError
 from app.errors.domain_not_allowed_error import DomainNotAllowedError
 from app.mail.capture_mailer import CaptureMailer
 from app.models.requests.signup_model import SignupModel
+
+
+class _RacingUserRepository(UserRepository):
+    """A repository whose insert always loses the duplicate-email race.
+
+    ``get_user_by_email`` behaves normally (so the availability pre-check
+    passes), while ``create_user`` raises the injected driver constraint
+    error — simulating a concurrent sign-up that inserted the row between the
+    pre-check and our insert.
+    """
+
+    def __init__(self, error: Exception) -> None:
+        self._error = error
+
+    async def create_user(self, *args: object, **kwargs: object) -> object:  # type: ignore[override]
+        raise self._error
 
 
 class TestSignupService(IsolatedAsyncioTestCase):
@@ -85,6 +102,47 @@ class TestSignupService(IsolatedAsyncioTestCase):
         # Act / Assert
         with self.assertRaises(ConflictError):
             await self._register(settings)
+
+    async def _register_with_racing_insert(self, error: Exception) -> ConflictError:
+        """Register with a repository whose insert raises ``error``; return the 409."""
+        service = SignupService(
+            users=_RacingUserRepository(error),
+            verification_settings=VerificationSettings(ttl_seconds=3600),
+        )
+        settings = AuthSettings(allowed_email_domains=())
+        with self.assertRaises(ConflictError) as caught:
+            await service.register(
+                conn=self._conn, mailer=self._mailer, model=self._body(), settings=settings
+            )
+        return caught.exception
+
+    async def test_duckdb_insert_race_raises_same_conflict(self) -> None:
+        """A DuckDB unique-constraint loss maps to the same 409 as the pre-check."""
+        # Arrange
+        driver_text = 'Duplicate key "email: engineer@example.com" violates unique constraint'
+
+        # Act
+        error = await self._register_with_racing_insert(duckdb.ConstraintException(driver_text))
+
+        # Assert — same generic message; no driver text or chained cause leaks.
+        assert error.message == "This email address cannot be registered."
+        assert driver_text not in str(error)
+        assert error.__cause__ is None
+        assert self._mailer.messages() == ()
+
+    async def test_postgres_insert_race_raises_same_conflict(self) -> None:
+        """A PostgreSQL unique-violation loss maps to the same 409 as the pre-check."""
+        # Arrange
+        driver_text = 'duplicate key value violates unique constraint "users_email_key"'
+
+        # Act
+        error = await self._register_with_racing_insert(psycopg.errors.UniqueViolation(driver_text))
+
+        # Assert — same generic message; no driver text or chained cause leaks.
+        assert error.message == "This email address cannot be registered."
+        assert driver_text not in str(error)
+        assert error.__cause__ is None
+        assert self._mailer.messages() == ()
 
     async def test_password_is_stored_hashed(self) -> None:
         """The stored password differs from plaintext yet verifies."""

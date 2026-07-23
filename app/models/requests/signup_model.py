@@ -3,7 +3,7 @@
 import re
 from typing import Annotated
 
-from annotated_types import MinLen
+from annotated_types import MaxLen, MinLen
 from pydantic import field_validator
 
 from app.auth.signup.signup_policy import SignupPolicy
@@ -19,8 +19,8 @@ class SignupModel(RequestModel):
     :attr:`SignupPolicy.EMAIL_PATTERN`. See ``docs/design/API_CONTRACT.md`` §2.
     """
 
-    email: str
-    password: Annotated[str, MinLen(SignupPolicy.MIN_PASSWORD_LENGTH)]
+    email: Annotated[str, MaxLen(320)]
+    password: Annotated[str, MinLen(SignupPolicy.MIN_PASSWORD_LENGTH), MaxLen(128)]
 
     @field_validator("email")
     @classmethod
