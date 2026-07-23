@@ -139,13 +139,14 @@ selected by deploy config (`LAVS_AUTH_MODES`). EE/Stytch is **out of scope here*
 
 ## 5. Cross-cutting
 
-- `/health` and `/ready` endpoints — the Helm probes in `helm/lavs` need real targets.
-- OpenAPI docs including the auth scheme.
-- Coverage targets (line 80 / branch 70 / function 90, per `.prompticorn.yaml`).
-- A security review pass (`/security-review`) before any release.
+Delivered as **P7 — Release readiness** (the v1 exit checklist, packaged as a phase).
+
+- [x] `/health` and `/ready` endpoints — shipped (P3/P4); pointing the `helm/lavs` probes at them is in flight (P7).
+- [ ] OpenAPI docs including the auth scheme (`X-API-Key` header + `lavs_session` cookie) — in flight (P7).
+- [ ] Coverage targets — line 80 / branch 70 / function 90. FE thresholds are enforced in `frontend/ui/vite.config.ts` (L80/B70/F90/S85); BE enforcement (L80/B70 via pytest-cov in `pyproject.toml`; function coverage measured/reported only) is in flight (P7). *(Corrected per G-P7b: earlier revisions cited `.prompticorn.yaml`, which does not exist — the thresholds live in the two files above.)*
+- [ ] A security review pass (`/security-review`) before any release — the pre-release audit is in flight (P7).
 
 ## 6. Open decisions / risks
 
 - **DuckDB concurrency** — single-writer; not suitable for multi-replica prod (hence Postgres). Validate the local connection model under concurrent requests.
 - **Migration** — moving off the flat `Versions` table is a breaking change (accepted); decide whether to provide a one-shot data migration or start fresh.
-- **Tracking** — the branch `feat/lavs-design-ui-foundation` lacks a ticket ID; rename to `feat/{TICKET}-...` once a real ticket exists, per the naming convention.

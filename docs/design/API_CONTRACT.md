@@ -6,8 +6,8 @@ here, the FE can't assume it. Companion to [ARCHITECTURE.md](./ARCHITECTURE.md) 
 
 > **Decisions locked** (2026-06-24): **OSS is the first cut; EE is a fast-follow.** v1 auth =
 > username/password + sessions (signup, email verification, domain allow-list) **and/or** API
-> key by deploy config. **EE/Stytch is deferred** — the provider abstraction is designed for
-> it now, but no Stytch code ships in v1. Product version on cut = **server auto-increment**.
+> key by deploy config. **EE/Stytch shipped as the P6 fast-follow** — the provider abstraction
+> carried it without any resource-route change. Product version on cut = **server auto-increment**.
 > Stream freshness = **live (SSE)**.
 
 ---
@@ -16,14 +16,14 @@ here, the FE can't assume it. Companion to [ARCHITECTURE.md](./ARCHITECTURE.md) 
 
 LAVS ships in two editions; **auth is pluggable and selected by deployment config** (env
 `LAVS_AUTH_MODES`, a comma list). One or more providers may be enabled at once. **v1 ships
-OSS only; EE is a fast-follow** — the abstraction is built for it now, but the Stytch
-provider is not implemented in the first cut.
+OSS by default; EE landed as the P6 fast-follow** — `StytchProvider` slots behind the same
+abstraction and is honored only when `LAVS_EDITION=ee`.
 
 | | OSS (v1) | EE (later) |
 |---|---|---|
 | Password + sessions | ✅ signup, email verification, domain allow-list | ✅ (or delegated to Stytch) |
 | API key (headless/deploy) | ✅ `X-API-Key` | ✅ |
-| Managed identity | — | ⏳ **Stytch** (passwordless / SSO / MFA) — *deferred* |
+| Managed identity | — | ✅ **Stytch** (magic links + OAuth via the prebuilt widget; P6) |
 | Config flag | `LAVS_AUTH_MODES=password,apikey` | `LAVS_AUTH_MODES=stytch,apikey` |
 
 ### Provider abstraction (backend)
@@ -78,7 +78,7 @@ sequenceDiagram
 
 - Session: opaque server-side session keyed by an `HttpOnly` cookie. `POST /auth/logout` clears it.
 - **API key (headless):** clients send `X-API-Key: <key>`; no cookie, no session. Used by CI/pipelines and deploy-configured UIs.
-- **EE / Stytch (deferred — not in v1):** UI uses the Stytch SDK; backend verifies the Stytch session JWT on `POST /auth/stytch/callback` and issues its own `lavs_session`. The rest of the API is identical regardless of how the `Principal` was obtained — which is exactly why EE can be added later without touching resource routes.
+- **EE / Stytch (shipped, P6):** UI uses the Stytch SDK; backend verifies the Stytch session JWT on `POST /auth/stytch/callback` and issues its own `lavs_session`. The rest of the API is identical regardless of how the `Principal` was obtained — which is exactly why EE can be added later without touching resource routes.
 
 ### Auth endpoints
 
@@ -89,7 +89,7 @@ sequenceDiagram
 | POST | `/auth/login` | `{email, password}` | sets session cookie |
 | POST | `/auth/logout` | — | clears session |
 | GET | `/auth/me` | — | current principal; 401 if unauthenticated |
-| POST | `/auth/stytch/callback` | `{stytch_token}` | EE only — *deferred, not in v1* |
+| POST | `/auth/stytch/callback` | `{stytch_token}` | EE only — shipped (P6); generic 401 when `stytch` mode is disabled |
 
 ## 3. Resource endpoints
 
@@ -239,7 +239,7 @@ sequenceDiagram
 - **Base URL:** FE reads `VITE_LAVS_API_URL`; one build runs against any backend.
 - **CORS:** backend allow-list (`LAVS_CORS_ORIGINS`); credentials enabled for the session cookie.
 - **Environments:** identical API on **DuckDB (local/default)** and **PostgreSQL (prod)**.
-- **Edition flag:** `GET /health` (or a `/meta`) reports `edition` + enabled `auth_modes` so
+- **Edition flag:** `GET /meta` (public) reports `edition` + enabled `auth_modes` (+ the EE publishable `stytch_public_token`) so
   the UI renders the right login (password form vs Stytch widget vs "configured key").
 - **API versioning:** prefix `/// v1` once contracts stabilize.
 

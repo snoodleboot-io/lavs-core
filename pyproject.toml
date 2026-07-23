@@ -83,6 +83,29 @@ markers = [
     "postgres: parity tests that run the app against a real PostgreSQL testcontainer (requires Docker)",
 ]
 
+[tool.coverage.run]
+branch = true
+source = ["app"]
+
+[tool.coverage.report]
+# G-P7d backend coverage gate. Coverage is intentionally NOT wired into pytest
+# addopts so the plain `uv run pytest` inner loop stays fast (and does not
+# interfere with pytest-xdist). Run the gate explicitly with:
+#
+#     uv run pytest -q --cov=app --cov-report=term-missing
+#
+# `fail_under` applies to coverage.py's single combined line+branch percentage
+# (because branch=true above). Targets: line >=80 and branch >=70 are ENFORCED
+# via this combined threshold; function >=90 is REPORTED-ONLY — coverage.py
+# cannot enforce it, read it from the function regions of `uv run coverage json`.
+fail_under = 80
+show_missing = true
+precision = 2
+exclude_also = [
+    # Entrypoint boilerplate — not executable under pytest.
+    "if __name__ == .__main__.:",
+]
+
 [tool.pyright]
 pythonVersion = "3.14"
 include = ["app"]

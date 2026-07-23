@@ -1,3 +1,22 @@
+# P7 Environment Manifest — 2026-07-23, branch `feat/35-p7-release-readiness`. **Gate: GREEN.**
+
+Release-readiness phase. BE from repo root via `uv`; FE from `frontend/ui`; infra checks native.
+
+| # | Item | Status | Verify |
+|---|---|---|---|
+| E1 | BE baseline @ `d83ad3c` | ✅ 466 pytest · ruff · pyright 0 err | pre-change baseline |
+| E2 | FE baseline @ `d83ad3c` | ✅ 118 vitest · build green | pre-change baseline |
+| E3 | Docker image | ✅ `lavs:p7-env-check` (`f499b1eb21ac`) | **must build with `--network=host`** — daemon-side IPv6 to Docker Hub is blackholed (DNS/TLS timeouts); RUN steps then use host IPv4. New-image pulls fail; base image is cached. |
+| E4 | Live app boot | ✅ | uvicorn `:8001` started → `/health` 200 `{"status":"ok"}` · `/ready` 200 `{"status":"ready"}` → stopped cleanly (start: `uv run uvicorn app.main:app --port 8001`; stop: `kill $PID`) |
+| E5 | Helm toolchain | ✅ v3.16.4 | `alpine/helm` container pull blocked by the IPv6 issue → **native static binary** fetched via IPv4 to the session scratchpad (`linux-amd64/helm`); `helm lint` passes (icon INFO only); `helm template` confirms probes currently render `/` (the R1 defect) |
+| E6 | Coverage tooling | ✅ | `pytest-cov` ≥7 importable; 466 tests collect; FE thresholds present in `vite.config.ts` |
+
+No new deps. Environment quirk (flagged for all lanes): docker builds require `--network=host`;
+do not depend on pulling images not already cached.
+Readiness: `P7_ENV_READY=GREEN`.
+
+---
+
 # P6 Environment Manifest — 2026-07-23, branch `feat/20-p6-ee-stytch`. **Gate: GREEN.**
 
 First **full-stack** phase (BE + FE lanes). BE from repo root via `uv`; FE from `frontend/ui`.

@@ -56,6 +56,9 @@ service:
   # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
   port: 80
 
+# This is the port the container listens on (uvicorn in the image serves on 8080); the Service routes its port to this via the named `http` targetPort.
+containerPort: 8080
+
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
   enabled: false
@@ -88,12 +91,16 @@ resources: {}
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:
   httpGet:
-    path: /
+    path: /health
     port: http
+  initialDelaySeconds: 10
+  periodSeconds: 15
 readinessProbe:
   httpGet:
-    path: /
+    path: /ready
     port: http
+  initialDelaySeconds: 3
+  periodSeconds: 10
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
 autoscaling:
