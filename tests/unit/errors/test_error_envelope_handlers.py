@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.errors.conflict_error import ConflictError
 from app.errors.error_code import ErrorCode
+from app.errors.forbidden_error import ForbiddenError
 from app.errors.handlers import register_error_handlers
 from app.errors.not_found_error import NotFoundError
 
@@ -28,6 +29,10 @@ def _build_app() -> FastAPI:
     @app.get("/validate")
     def _validate(value: Annotated[int, Query()]) -> dict[str, int]:
         return {"value": value}
+
+    @app.get("/forbidden")
+    def _forbidden() -> None:
+        raise ForbiddenError("not permitted", {"resource": "release"})
 
     @app.get("/teapot")
     def _teapot() -> None:
@@ -68,6 +73,18 @@ class TestDomainErrorEnvelopes:
         assert body["error"]["code"] == ErrorCode.CONFLICT.value
         assert body["error"]["message"] == "already exists"
         assert body["error"]["details"] == {}
+
+    def test_forbidden_returns_403_envelope(self, client: TestClient) -> None:
+        """``ForbiddenError`` serializes as a 403 ``forbidden`` envelope."""
+        # Act
+        response = client.get("/forbidden")
+
+        # Assert
+        assert response.status_code == 403
+        body = response.json()
+        assert body["error"]["code"] == ErrorCode.FORBIDDEN.value
+        assert body["error"]["message"] == "not permitted"
+        assert body["error"]["details"] == {"resource": "release"}
 
 
 class TestFrameworkErrorEnvelopes:

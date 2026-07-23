@@ -17,6 +17,8 @@ from app.database.migration.flat_to_relational_migration import FlatToRelational
 from app.errors.handlers import register_error_handlers
 from app.events.event_bus import EventBus
 from app.mail.capture_mailer import CaptureMailer
+from app.openapi.app_metadata import AppMetadata
+from app.openapi.openapi_customizer import OpenApiCustomizer
 from app.routers import auth, components, events, meta, products, releases, timeline, versions
 
 logger = logging.getLogger("lavs-api")
@@ -92,7 +94,12 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             logger.info("Managed database session closed for application lifespan.")
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    title=AppMetadata.TITLE,
+    description=AppMetadata.DESCRIPTION,
+    version=AppMetadata.version(),
+)
 register_error_handlers(app)
 
 
@@ -148,6 +155,11 @@ app.include_router(versions.router)
 app.include_router(timeline.router)
 app.include_router(releases.router)
 app.include_router(events.router)
+
+# All routers are mounted; generate the OpenAPI document once and inject the
+# contract's security schemes plus per-operation security markers (secured
+# routes only — the public bootstrap surface stays unmarked).
+OpenApiCustomizer().customize(app)
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="localhost", port=8001)

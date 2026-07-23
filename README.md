@@ -1,6 +1,6 @@
 # lavs - lowercase acronym versioning system
 
-WIP - Do not use at this time. Will have support in a robust fashion for DuckDB, MySQL, Postgres and SQL Server (maybe MongoDB) when it is ready.
+Approaching its v1 cut. Runs today on DuckDB (local default) and PostgreSQL (production), with the identical API on both; MySQL and SQL Server (maybe MongoDB) are planned follow-ons.
 
 ## About
 
@@ -14,6 +14,15 @@ You may be asking why, but the why is rather simple - the ability to scale compl
 While any sane human would realize that these do not have the same version - there seems to be a tendency to try and tie a product's version to all the underlying components unnaturally - that is, forcing them to have the same version! 
 
 Furthermore, this is a starting step to a bigger picture to help track complex applications with different versions so that a sane version of a product version can be created. This will be great help in marketing, sales and identifying a release package whether managed internally or external in a client/customers software solution.
+
+## Editions
+
+lavs v1 ships as a REST API plus the Constellation UI, in two editions selected purely by deploy config:
+
+- **OSS (default)** — password + session auth (signup, email verification, optional domain allow-list) and/or an `X-API-Key` for headless clients (`LAVS_AUTH_MODES=password,apikey`).
+- **EE (fast-follow, shipped)** — managed identity via Stytch (email magic links + Google/GitHub OAuth) behind the same pluggable auth abstraction; enable with `LAVS_EDITION=ee` and `stytch` in `LAVS_AUTH_MODES`. To verify an EE deployment against a real Stytch tenant, follow the manual smoke procedure in [docs/ops/STYTCH_MANUAL_SMOKE.md](docs/ops/STYTCH_MANUAL_SMOKE.md).
+
+For operations, the API exposes `GET /health` (liveness) and `GET /ready` (readiness) — the targets for the Helm chart's probes — and `GET /meta`, which reports the running edition and enabled auth modes so clients render the right login.
 
 ## The Architecture
 From a functional standpoint - this is just a simple REST API with an optional authentication layer.
