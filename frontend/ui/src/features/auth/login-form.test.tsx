@@ -8,6 +8,23 @@ import { renderWithProviders } from '@/test';
 
 import { LoginForm } from './login-form';
 
+// Stub the Stytch SDK — the prebuilt widget is Stytch's code; these tests only
+// assert which login paths LoginForm renders per /meta auth_modes.
+vi.mock('@stytch/vanilla-js', () => {
+  class StytchUIClient {
+    readonly session = { getTokens: (): null => null };
+    mountLogin(): void {}
+  }
+  return {
+    StytchUIClient,
+    Products: {
+      emailMagicLinks: { id: 'emailMagicLinks', screens: {} },
+      oauth: { id: 'oauth', screens: {} },
+    },
+    StytchEventType: { AuthenticateFlowComplete: 'AUTHENTICATE_FLOW_COMPLETE' },
+  };
+});
+
 describe('LoginForm', () => {
   it('renders the password form under default meta (password,apikey)', () => {
     renderWithProviders(<LoginForm />);
@@ -55,13 +72,72 @@ describe('LoginForm', () => {
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
   });
 
-  it('shows a managed sign-in placeholder for stytch-only deployments', async () => {
+  it('renders the Stytch managed sign-in for stytch-only deployments', async () => {
     server.use(
-      http.get('*/api/meta', () => HttpResponse.json({ edition: 'ee', auth_modes: ['stytch'] })),
+      http.get('*/api/meta', () =>
+        HttpResponse.json({
+          edition: 'ee',
+          auth_modes: ['stytch'],
+          stytch_public_token: 'pk-test-token',
+        }),
+      ),
     );
     renderWithProviders(<LoginForm />);
 
-    await waitFor(() => expect(screen.getByText(/coming soon/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /managed sign-in/i })).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('stytch-widget')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+  });
+
+  it('renders both password and Stytch paths in mixed mode', async () => {
+    server.use(
+      http.get('*/api/meta', () =>
+        HttpResponse.json({
+          edition: 'ee',
+          auth_modes: ['password', 'stytch'],
+          stytch_public_token: 'pk-test-token',
+        }),
+      ),
+    );
+    renderWithProviders(<LoginForm />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /managed sign-in/i })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('heading', { name: /^sign in$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
+    expect(screen.getByRole('separator')).toBeInTheDocument();
+    expect(screen.getByTestId('stytch-widget')).toBeInTheDocument();
+  });
+
+  it('prefers Stytch over the API-key notice when both are enabled', async () => {
+    server.use(
+      http.get('*/api/meta', () =>
+        HttpResponse.json({
+          edition: 'ee',
+          auth_modes: ['stytch', 'apikey'],
+          stytch_public_token: 'pk-test-token',
+        }),
+      ),
+    );
+    renderWithProviders(<LoginForm />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /managed sign-in/i })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('heading', { name: /configured API key/i })).not.toBeInTheDocument();
+  });
+
+  it('explains when no interactive auth mode is enabled', async () => {
+    server.use(http.get('*/api/meta', () => HttpResponse.json({ edition: 'oss', auth_modes: [] })));
+    renderWithProviders(<LoginForm />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /sign-in unavailable/i })).toBeInTheDocument(),
+    );
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
   });
 });

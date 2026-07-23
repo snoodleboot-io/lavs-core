@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@stytch/vanilla-js':
+        specifier: ^6.0.11
+        version: 6.0.11
       '@tanstack/react-query':
         specifier: ^5.62.7
         version: 5.101.2(react@19.2.7)
@@ -660,6 +663,9 @@ packages:
     resolution: {integrity: sha512-BfzEnDJOt9T8M989/lA37EcJgat01wLRnoi5dQf3QzOH7jzpqTAzdDbVfRljVr5r+jzKqpbHeyOfAaXxAd0PAA==}
     cpu: [x64]
     os: [win32]
+
+  '@stytch/vanilla-js@6.0.11':
+    resolution: {integrity: sha512-EpFCwCeevzxZIzJSQ0JHH8JFtUz0XzF8sy4rtuL95QflMSrdLVf1BWC1JdQtZGKpYw9IpBkRlLDONzzSveye7Q==}
 
   '@tanstack/query-core@5.101.2':
     resolution: {integrity: sha512-hH5MLoJhF7KaIGd7q3xTXGXvslI+GYlM1Z/35aSHHWaCJWB7XvTSHYuV3eM7tw+aE0mT/xMro4M4Q9rCGHT0lw==}
@@ -2438,6 +2444,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.62.2':
     optional: true
+
+  '@stytch/vanilla-js@6.0.11': {}
 
   '@tanstack/query-core@5.101.2': {}
 

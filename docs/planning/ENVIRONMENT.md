@@ -1,3 +1,21 @@
+# P6 Environment Manifest — 2026-07-23, branch `feat/20-p6-ee-stytch`. **Gate: GREEN.**
+
+First **full-stack** phase (BE + FE lanes). BE from repo root via `uv`; FE from `frontend/ui`.
+
+| # | Item | Status | Verify |
+|---|---|---|---|
+| E1 | BE baseline @ `11ac6da` | ✅ 412 pytest · ruff clean | pre-change baseline |
+| E2 | FE baseline @ `11ac6da` | ✅ 107 vitest · build green | pre-change baseline |
+| E3 | `stytch` python SDK | ✅ 15.3.0 | `uv add stytch`; import OK; `Sessions.authenticate(_async)` + `AuthenticateResponse{session,user}` surface confirmed |
+| E4 | `@stytch/vanilla-js` | ✅ 6.0.11 | `pnpm add`; build + 107 tests still green (pnpm store relinked after snap move) |
+| E5 | Fake Stytch verifier | ✅ | provider takes an injected client; fake mirrors `sessions.authenticate_async(session_token=…) → AuthenticateResponse`-shaped object; no network in tests (G-P6b) |
+
+New deps (flagged, per G-P6a): **`stytch` 15.3.0** (BE runtime) · **`@stytch/vanilla-js` 6.0.11** (FE prebuilt widget).
+No live Stytch tenant required for any gate (G-P6b) — manual smoke doc post-merge.
+Readiness: `P6_ENV_READY=GREEN`.
+
+---
+
 # P5 Environment Manifest — 2026-07-12, branch `feat/19-p5-frontend`. **Gate: GREEN.**
 
 First **frontend** environment. All FE-local under `frontend/ui`; backend untouched. Run commands

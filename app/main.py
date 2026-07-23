@@ -8,6 +8,9 @@ from fastapi import FastAPI, Request, Response
 from app.auth.auth_resolver_factory import AuthResolverFactory
 from app.auth.auth_settings import AuthSettings
 from app.auth.providers.password_session_provider import PasswordSessionProvider
+from app.auth.providers.stytch_provider import StytchProvider
+from app.auth.stytch.stytch_sdk_verifier import StytchSdkVerifier
+from app.auth.stytch.stytch_verifier import StytchVerifier
 from app.backends.backend_factory import BackendFactory
 from app.connections.db_session import DbSession
 from app.database.migration.flat_to_relational_migration import FlatToRelationalMigration
@@ -53,6 +56,18 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         auth_registry = AuthResolverFactory.build_registry(auth_settings)
         if auth_settings.password_enabled():
             auth_registry.register(PasswordSessionProvider(edition=auth_settings.edition()))
+        stytch_verifier: StytchVerifier | None = None
+        if auth_settings.stytch_enabled():
+            stytch_verifier = StytchSdkVerifier(settings=auth_settings)
+            auth_registry.register(
+                StytchProvider(edition=auth_settings.edition(), verifier=stytch_verifier)
+            )
+            if not auth_settings.password_enabled():
+                # Stytch-only deployments still authenticate the lavs_session
+                # cookie minted by /auth/stytch/callback via the session
+                # provider; with password enabled it is already registered.
+                auth_registry.register(PasswordSessionProvider(edition=auth_settings.edition()))
+        application.state.stytch_verifier = stytch_verifier
         application.state.auth_settings = auth_settings
         application.state.auth_registry = auth_registry
         application.state.auth_resolver = AuthResolverFactory.build_resolver(
@@ -72,6 +87,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             application.state.auth_settings = None
             application.state.auth_registry = None
             application.state.auth_resolver = None
+            application.state.stytch_verifier = None
             application.state.mailer = None
             logger.info("Managed database session closed for application lifespan.")
 

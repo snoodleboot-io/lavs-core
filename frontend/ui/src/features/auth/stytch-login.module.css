@@ -1,0 +1,28 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  font-size: 18px;
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+
+.loading {
+  color: var(--muted);
+  margin: 0;
+}
+
+.error {
+  color: var(--danger);
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.widget {
+  /* The Stytch prebuilt widget mounts here; keep it flush with the panel. */
+  display: flex;
+  flex-direction: column;
+}

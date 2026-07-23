@@ -15,6 +15,7 @@ dependencies = [
     "pydantic>=2.12.5",
     "python-ulid>=3.1.0",
     "pyyaml>=6.0.0",
+    "stytch>=15.3.0",
     "uvicorn>=0.40.0",
 ]
 
