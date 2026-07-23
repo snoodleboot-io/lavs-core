@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 
 import { useAuth } from '@/features/auth';
 
+import { StytchLogin } from './stytch-login';
 import styles from './login-form.module.css';
 
 export interface LoginFormProps {
@@ -11,9 +12,9 @@ export interface LoginFormProps {
 
 /**
  * `/meta`-adaptive, a11y-complete login form. Renders the password form when the
- * deployment enables `password` (or before `/meta` resolves), and otherwise explains
- * the configured non-interactive auth mode (`apikey`) or the future managed sign-in
- * (`stytch`). This is the production replacement for the foundation's placeholder form.
+ * deployment enables `password` (or before `/meta` resolves), the Stytch managed
+ * sign-in widget when `stytch` is enabled (both side by side in mixed mode), and
+ * otherwise explains the configured non-interactive auth mode (`apikey`).
  */
 export function LoginForm({ onSuccess }: LoginFormProps): ReactNode {
   const { meta, login } = useAuth();
@@ -41,7 +42,7 @@ export function LoginForm({ onSuccess }: LoginFormProps): ReactNode {
   }
 
   if (passwordEnabled) {
-    return (
+    const passwordForm = (
       <form
         className={styles.form}
         onSubmit={(event) => void onSubmit(event)}
@@ -88,6 +89,23 @@ export function LoginForm({ onSuccess }: LoginFormProps): ReactNode {
         </button>
       </form>
     );
+
+    if (!stytchEnabled) return passwordForm;
+
+    // Mixed mode: both interactive paths in one layout, separated for clarity.
+    return (
+      <div className={styles.stack}>
+        {passwordForm}
+        <div className={styles.separator} role="separator" aria-orientation="horizontal">
+          <span>or</span>
+        </div>
+        <StytchLogin onSuccess={onSuccess} />
+      </div>
+    );
+  }
+
+  if (stytchEnabled) {
+    return <StytchLogin onSuccess={onSuccess} />;
   }
 
   if (apiKeyEnabled) {
@@ -98,15 +116,6 @@ export function LoginForm({ onSuccess }: LoginFormProps): ReactNode {
           This deployment authenticates with a configured API key — no interactive login is
           required.
         </p>
-      </div>
-    );
-  }
-
-  if (stytchEnabled) {
-    return (
-      <div className={styles.notice} role="status">
-        <h2 className={styles.title}>Managed sign-in</h2>
-        <p className={styles.sub}>Managed sign-in is coming soon.</p>
       </div>
     );
   }

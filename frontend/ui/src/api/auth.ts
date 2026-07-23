@@ -21,6 +21,14 @@ export function logout(): Promise<Result<void>> {
   return http.post<void>('/auth/logout');
 }
 
+/**
+ * EE: exchange a Stytch session token/JWT for a LAVS session. The backend verifies the
+ * token with Stytch, sets the HttpOnly `lavs_session` cookie, and returns the principal.
+ */
+export function stytchCallback(stytchToken: string): Promise<Result<Principal>> {
+  return http.post<Principal>('/auth/stytch/callback', { stytch_token: stytchToken });
+}
+
 /** Deploy config: edition + enabled auth modes, so the UI renders the right login. */
 export function getMeta(signal?: AbortSignal): Promise<Result<Meta>> {
   return http.get<Meta>('/meta', { signal });

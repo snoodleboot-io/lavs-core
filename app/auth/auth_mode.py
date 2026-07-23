@@ -10,8 +10,10 @@ class AuthMode(StrEnum):
     ``docs/design/API_CONTRACT.md`` §1). ``password`` (username/password +
     sessions) is added by the R2 lane; ``apikey`` is the headless ``X-API-Key``
     mode wired here in the foundation. The managed-identity ``stytch`` mode is
-    deferred and intentionally not represented.
+    the EE (P6) lane — it is only honoured when the deployment edition is
+    ``ee`` (see :meth:`app.auth.auth_settings.AuthSettings.modes`).
     """
 
     PASSWORD = "password"
     APIKEY = "apikey"
+    STYTCH = "stytch"

@@ -78,4 +78,6 @@ export interface Principal {
 export interface Meta {
   readonly edition: Edition;
   readonly auth_modes: readonly AuthMode[];
+  /** EE only: Stytch publishable token for the managed sign-in widget (absent on OSS). */
+  readonly stytch_public_token?: string | null;
 }

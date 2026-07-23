@@ -47,6 +47,24 @@ export const handlers: HttpHandler[] = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  // EE: exchange a Stytch session token/JWT for a LAVS session cookie + principal.
+  http.post(`${BASE}/auth/stytch/callback`, async ({ request }) => {
+    const body = (await request.json()) as { stytch_token?: string };
+    if (!body.stytch_token) {
+      return errorResponse(422, 'validation_error', 'stytch_token is required');
+    }
+    if (body.stytch_token === 'stytch-invalid') {
+      return errorResponse(401, 'unauthorized', 'Stytch session rejected');
+    }
+    db.principal = {
+      kind: 'user',
+      id: 'user-stytch-1',
+      email: 'astronomer@snoodleboot.com',
+      edition: 'ee',
+    };
+    return HttpResponse.json(db.principal);
+  }),
+
   // --- products / timeline ---
   http.get(`${BASE}/products`, () => HttpResponse.json([db.product])),
 

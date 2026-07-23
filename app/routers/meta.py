@@ -42,9 +42,14 @@ def _enabled_auth_modes(settings: AuthSettings) -> list[str]:
     return sorted(mode.value for mode in modes)
 
 
-@router.get("/meta", response_model=MetaResponseModel)
+@router.get("/meta", response_model=MetaResponseModel, response_model_exclude_none=True)
 def get_meta(request: Request) -> MetaResponseModel:
     """Report the deployment edition and enabled auth modes.
+
+    ``response_model_exclude_none`` keeps the OSS response byte-identical to
+    its pre-EE shape: ``stytch_public_token`` appears only when a token is
+    configured (EE + stytch). ``edition`` and ``auth_modes`` are never ``None``
+    so the exclusion can never drop them.
 
     Args:
         request: The incoming request, used to reach the managed settings.
@@ -56,4 +61,5 @@ def get_meta(request: Request) -> MetaResponseModel:
     return MetaResponseModel(
         edition=settings.edition(),
         auth_modes=_enabled_auth_modes(settings),
+        stytch_public_token=settings.stytch_public_token() if settings.stytch_enabled() else None,
     )

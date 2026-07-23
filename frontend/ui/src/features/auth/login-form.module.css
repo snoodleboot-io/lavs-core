@@ -65,3 +65,27 @@
   flex-direction: column;
   gap: 8px;
 }
+
+/* Mixed-mode (password + stytch) layout. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.separator::before,
+.separator::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--line);
+}
