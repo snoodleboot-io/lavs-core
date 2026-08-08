@@ -5,22 +5,12 @@ from app.configurations.root_dir import root_dir
 
 
 class TestRoot(TestCase):
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
-    def test_root(self):
+    def test_root_resolves_to_the_app_source_directory(self):
+        # root_dir() must resolve to the `app` package directory itself,
+        # independent of what the checked-out repository folder is named
+        # (local `lavs`, CI `lavs-core`, …) — hardcoding that name is brittle.
         result = root_dir()
-        # This will test Windows and Linux = a bit hacky - but the code is hacky right now so fine with it.
-        try:
-            self.assertEqual(
-                result.replace(os.path.dirname(os.path.dirname(result)), ""),
-                r"\lavs\app",
-            )
-        except Exception:
-            self.assertEqual(
-                result.replace(os.path.dirname(os.path.dirname(result)), ""),
-                r"/lavs/app",
-            )
+
+        self.assertEqual(os.path.basename(result), "app")
+        self.assertTrue(os.path.isdir(result))
+        self.assertTrue(os.path.isfile(os.path.join(result, "main.py")))
