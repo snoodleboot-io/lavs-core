@@ -11,8 +11,8 @@ class Principal(BaseModel):
     Mirrors the contract's ``Principal = {kind, id, email?, edition}`` (see
     ``docs/design/API_CONTRACT.md`` §1). Resource routes depend on a resolved
     principal without caring which provider produced it, which is exactly what
-    lets new providers (password/session, Stytch) be added without touching the
-    routes.
+    lets new providers (password/session, and plugin-contributed ones) be added
+    without touching the routes.
     """
 
     kind: PrincipalKind

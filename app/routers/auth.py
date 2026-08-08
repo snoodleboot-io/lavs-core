@@ -24,8 +24,6 @@ Security posture of the login lane:
 import secrets
 from typing import Annotated
 
-import duckdb
-import psycopg.errors
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from app.auth.auth_settings import AuthSettings
@@ -35,8 +33,6 @@ from app.auth.session.session_cookie import SessionCookie
 from app.auth.session.session_service import SessionService
 from app.auth.signup.signup_service import SignupService
 from app.auth.signup.verification_service import VerificationService
-from app.auth.stytch.stytch_verifier import StytchVerifier
-from app.auth.stytch.stytch_verifier_dependency import get_stytch_verifier
 from app.auth.users.user_repository import UserRepository
 from app.auth.users.user_status import UserStatus
 from app.connections.db_dependency import get_db_connection
@@ -46,17 +42,14 @@ from app.mail.mailer import Mailer
 from app.mail.mailer_dependency import get_mailer
 from app.models.requests.login_model import LoginModel
 from app.models.requests.signup_model import SignupModel
-from app.models.requests.stytch_callback_model import StytchCallbackModel
 from app.models.requests.verify_model import VerifyModel
 from app.models.responses.signup_accepted_model import SignupAcceptedModel
 from app.models.responses.user_response_model import UserResponseModel
-from app.models.types.ulid_id import new_ulid
 
 router = APIRouter(tags=["auth"], prefix="/auth")
 
 DbConnection = Annotated[DbSession, Depends(get_db_connection)]
 MailerDep = Annotated[Mailer, Depends(get_mailer)]
-StytchVerifierDep = Annotated[StytchVerifier, Depends(get_stytch_verifier)]
 
 _GENERIC_LOGIN_FAILURE = "invalid credentials"
 
@@ -88,8 +81,8 @@ def _set_session_cookie(response: Response, token: str, ttl_seconds: int) -> Non
     """Set the hardened ``lavs_session`` cookie on a response.
 
     One place for the cookie flags so every session-establishing route
-    (``/auth/login``, ``/auth/stytch/callback``) issues the byte-identical
-    ``HttpOnly``/``Secure``/``SameSite=Lax`` cookie.
+    (``/auth/login`` today, plus any provided by an out-of-core edition) issues
+    the byte-identical ``HttpOnly``/``Secure``/``SameSite=Lax`` cookie.
 
     Args:
         response: The outgoing response to set the cookie on.
@@ -205,159 +198,6 @@ async def login(
         email=str(user_row[1]),
         status=str(user_row[3]),
         edition=None if user_row[4] is None else str(user_row[4]),
-    )
-
-
-def _assert_stytch_domain_allowed(email: str, settings: AuthSettings) -> None:
-    """Enforce the email-domain allow-list on the Stytch callback lane.
-
-    Uses the same normalization semantics as ``SignupService`` (the allow-list
-    is lower-cased by :meth:`AuthSettings.allowed_email_domains`, the domain is
-    everything after the last ``@`` of the already-lowered email, and an empty
-    allow-list means every domain is allowed) but fails with the **generic
-    401** rather than signup's 403 ``DomainNotAllowedError``: on a credential
-    lane a distinct status would let a probe fingerprint the allow-list.
-
-    Posture: the check applies to **existing** mapped users as well as
-    first-sight creations (defense in depth) — an operator who tightens the
-    allow-list expects previously-mapped users outside it to stop
-    authenticating through Stytch, not to be grandfathered in.
-
-    Args:
-        email: The normalised (trimmed, lower-cased) Stytch-verified email.
-        settings: The auth settings carrying the allow-list.
-
-    Raises:
-        UnauthorizedError: When a non-empty allow-list excludes the domain.
-    """
-    allowed = settings.allowed_email_domains()
-    if not allowed:
-        return
-    domain = email.rsplit("@", 1)[-1]
-    if domain not in allowed:
-        raise UnauthorizedError(message=_GENERIC_LOGIN_FAILURE)
-
-
-async def _existing_stytch_user(
-    repository: UserRepository, conn: DbSession, user_row: tuple[object, ...]
-) -> tuple[str, str | None]:
-    """Map an existing user row for the Stytch callback lane.
-
-    A ``disabled`` row is refused with the generic 401; a ``pending`` row is
-    activated (Stytch has verified the email).
-
-    Args:
-        repository: The users-table repository.
-        conn: The live database connection.
-        user_row: The raw ``users`` row for the verified email.
-
-    Returns:
-        The ``(user_id, user_edition)`` pair for the session and response.
-
-    Raises:
-        UnauthorizedError: When the account is disabled — same generic message
-            as every other callback failure (no enumeration).
-    """
-    if str(user_row[3]) == UserStatus.DISABLED.value:
-        raise UnauthorizedError(message=_GENERIC_LOGIN_FAILURE)
-    user_id = str(user_row[0])
-    user_edition = None if user_row[4] is None else str(user_row[4])
-    if str(user_row[3]) == UserStatus.PENDING.value:
-        await repository.activate_user(conn, user_id)
-    return user_id, user_edition
-
-
-@router.post("/stytch/callback", response_model=UserResponseModel)
-async def stytch_callback(
-    body: StytchCallbackModel,
-    request: Request,
-    response: Response,
-    conn: DbConnection,
-    verifier: StytchVerifierDep,
-) -> UserResponseModel:
-    """Exchange a verified Stytch session token for a ``lavs_session`` (EE).
-
-    Active only when the ``stytch`` auth mode is enabled (EE deployments):
-    when it is not, the route answers with the same generic 401 as any bad
-    credential, so a probe cannot distinguish "disabled" from "invalid". On
-    success the token is verified through the injected
-    :class:`~app.auth.stytch.stytch_verifier.StytchVerifier`, the caller is
-    mapped onto the shared ``users`` table by their Stytch-verified email
-    (created ``active`` on first sight; an existing ``pending`` user is
-    activated, since Stytch has verified the email), and a normal server-side
-    session is opened with the identical hardened cookie as ``/auth/login``.
-    The email-domain allow-list is enforced on this lane for first-sight
-    creations **and** existing mapped users (see
-    :func:`_assert_stytch_domain_allowed`), and a concurrent first-sight race
-    on the unique email column is absorbed by adopting the winning row. On
-    **any** verification failure a single generic 401 is returned; the token
-    is never logged or persisted.
-
-    Args:
-        body: The callback body carrying the raw Stytch token.
-        request: The incoming request, used to read the deployment settings.
-        response: The outgoing response, used to set the session cookie.
-        conn: The application-managed database connection.
-        verifier: The Stytch verification seam (injected).
-
-    Returns:
-        The authenticated user as a safe :class:`UserResponseModel`.
-
-    Raises:
-        UnauthorizedError: When the ``stytch`` mode is disabled, the token
-            does not verify, the verified identity carries no verified email,
-            the email's domain is outside a configured allow-list, or the
-            mapped account is disabled — always with the same generic message.
-    """
-    settings = _auth_settings(request)
-    if not settings.stytch_enabled():
-        raise UnauthorizedError(message=_GENERIC_LOGIN_FAILURE)
-
-    verification = await verifier.verify(body.stytch_token)
-    if verification is None or verification.email is None or not verification.email.strip():
-        raise UnauthorizedError(message=_GENERIC_LOGIN_FAILURE)
-
-    email = verification.email.strip().lower()
-    _assert_stytch_domain_allowed(email, settings)
-    repository = UserRepository()
-    user_row = await repository.get_user_by_email(conn, email)
-
-    if user_row is None:
-        # Stytch-born users have no LAVS password; store an unusable random
-        # hash (mirroring the timing-equaliser approach) so the row satisfies
-        # the schema yet can never authenticate through /auth/login.
-        try:
-            created = await repository.create_user(
-                conn,
-                user_id=new_ulid(),
-                email=email,
-                password_hash=PasswordHasher().hash_password(secrets.token_urlsafe(32)),
-                status=UserStatus.ACTIVE,
-                edition=settings.edition(),
-            )
-            user_id = created.id
-            user_edition = created.edition
-        except duckdb.ConstraintException, psycopg.errors.UniqueViolation:
-            # A concurrent first-sight callback won the insert race; adopt the
-            # row it created instead of surfacing a duplicate-key 500.
-            user_row = await repository.get_user_by_email(conn, email)
-            if user_row is None:
-                # ``from None``: the driver's message may embed row values and
-                # must not chain into the generic credential failure.
-                raise UnauthorizedError(message=_GENERIC_LOGIN_FAILURE) from None
-            user_id, user_edition = await _existing_stytch_user(repository, conn, user_row)
-    else:
-        user_id, user_edition = await _existing_stytch_user(repository, conn, user_row)
-
-    ttl_seconds = settings.session_ttl_seconds()
-    token = SessionService().create_session(conn, user_id=user_id, ttl_seconds=ttl_seconds)
-    _set_session_cookie(response, token=token, ttl_seconds=ttl_seconds)
-
-    return UserResponseModel(
-        id=user_id,
-        email=email,
-        status=UserStatus.ACTIVE.value,
-        edition=user_edition,
     )
 
 

@@ -23,7 +23,6 @@ from tests.acceptance._auth_support import API_KEY, auth_test_client
 @pytest.fixture
 def auth_client(monkeypatch, test_db: str):
     """A lifespan-active client with password + API-key auth both configured."""
-    monkeypatch.setenv("LAVS_STYTCH_SECRET", "secret-key-test-not-for-openapi")
     with auth_test_client(monkeypatch, api_key=API_KEY) as client:
         yield client
 
@@ -86,14 +85,12 @@ class TestOpenApiDocument:
         assert cookie_scheme["name"] == SessionCookie.NAME
 
     def test_document_contains_no_configured_secrets(self, openapi_document: dict) -> None:
-        """Neither the configured API key nor the Stytch secret leaks into the doc."""
+        """The configured API key never leaks into the published document."""
         # Act
         serialized = json.dumps(openapi_document)
 
         # Assert — the doc is static; configured credential values never appear
         assert API_KEY not in serialized
-        assert "secret-key-test-not-for-openapi" not in serialized
-        assert "LAVS_STYTCH_SECRET" not in serialized
         assert "LAVS_API_KEY" not in serialized
 
 

@@ -7,21 +7,22 @@ class MetaResponseModel(ResponseModel):
     """Deployment capabilities the UI reads to render the right login.
 
     See ``docs/design/API_CONTRACT.md`` §8: the UI branches on ``edition`` and
-    the enabled ``auth_modes`` (password form vs configured-key vs Stytch
-    widget). Public — it must be reachable before a principal exists.
-    ``stytch_public_token`` is the browser-safe publishable Stytch token the
-    EE login widget initialises with; it is ``None`` outside EE/stytch
-    deployments (never the project secret) and the ``/meta`` route serializes
-    with ``exclude_none`` so the key is **omitted** when unset, keeping the
-    OSS response body byte-identical to its pre-EE shape.
+    the enabled ``auth_modes`` (password form vs configured-key). Public — it
+    must be reachable before a principal exists.
+
+    The model allows **extra** fields (``extra="allow"``) so an out-of-core
+    edition can contribute additional capability fields through the ``/meta``
+    plugin extension seam (``app.state.meta_extensions``) without core knowing
+    their names. With no extension installed the response carries only
+    ``edition`` and ``auth_modes``, byte-identical to the OSS shape.
     """
 
     edition: str
     auth_modes: list[str]
-    stytch_public_token: str | None = None
 
     model_config = {
+        "extra": "allow",
         "json_schema_extra": {
             "examples": [{"edition": "oss", "auth_modes": ["password", "apikey"]}]
-        }
+        },
     }

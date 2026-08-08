@@ -9,9 +9,6 @@ _MODES = "LAVS_AUTH_MODES"
 _DOMAINS = "LAVS_ALLOWED_EMAIL_DOMAINS"
 _TTL = "LAVS_SESSION_TTL_SECONDS"
 _EDITION = "LAVS_EDITION"
-_STYTCH_PROJECT_ID = "LAVS_STYTCH_PROJECT_ID"
-_STYTCH_SECRET = "LAVS_STYTCH_SECRET"
-_STYTCH_PUBLIC_TOKEN = "LAVS_STYTCH_PUBLIC_TOKEN"
 
 
 @pytest.fixture(autouse=True)
@@ -22,9 +19,6 @@ def _clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
         _DOMAINS,
         _TTL,
         _EDITION,
-        _STYTCH_PROJECT_ID,
-        _STYTCH_SECRET,
-        _STYTCH_PUBLIC_TOKEN,
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -46,9 +40,9 @@ class TestModes:
         assert AuthSettings().modes() == {AuthMode.PASSWORD, AuthMode.APIKEY}
 
     def test_ignores_unknown_modes(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Forward-compatible tokens (e.g. stytch) are ignored, not fatal."""
+        """Forward-compatible tokens (a mode this build does not ship) are ignored."""
         # Arrange
-        monkeypatch.setenv(_MODES, "password,stytch")
+        monkeypatch.setenv(_MODES, "password,webauthn")
 
         # Act / Assert
         assert AuthSettings().modes() == {AuthMode.PASSWORD}
@@ -121,110 +115,3 @@ class TestEdition:
 
         # Act / Assert
         assert AuthSettings().edition() == "ee"
-
-
-class TestStytchModeGating:
-    """The ``stytch`` token is honoured on EE only (edition × modes matrix)."""
-
-    @pytest.mark.parametrize(
-        ("edition", "modes_env", "expected"),
-        [
-            (None, "stytch", set()),
-            ("oss", "stytch", set()),
-            ("ee", "stytch", {AuthMode.STYTCH}),
-            (None, "password,stytch", {AuthMode.PASSWORD}),
-            ("oss", "password,stytch", {AuthMode.PASSWORD}),
-            ("ee", "password,stytch", {AuthMode.PASSWORD, AuthMode.STYTCH}),
-            ("ee", "stytch,apikey", {AuthMode.STYTCH, AuthMode.APIKEY}),
-            ("ee", "password,apikey", {AuthMode.PASSWORD, AuthMode.APIKEY}),
-        ],
-    )
-    def test_edition_gates_the_stytch_token(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        edition: str | None,
-        modes_env: str,
-        expected: set[AuthMode],
-    ) -> None:
-        """``stytch`` in ``LAVS_AUTH_MODES`` only takes effect when edition is ``ee``."""
-        # Arrange
-        monkeypatch.setenv(_MODES, modes_env)
-        if edition is not None:
-            monkeypatch.setenv(_EDITION, edition)
-
-        # Act / Assert
-        assert AuthSettings().modes() == expected
-
-    def test_stytch_enabled_true_on_ee(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """``stytch_enabled`` reflects an EE deployment with the mode configured."""
-        # Arrange
-        monkeypatch.setenv(_MODES, "stytch")
-        monkeypatch.setenv(_EDITION, "ee")
-
-        # Act / Assert
-        assert AuthSettings().stytch_enabled() is True
-
-    def test_stytch_enabled_false_on_oss(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """On OSS the configured ``stytch`` token stays ignored, exactly as before EE."""
-        # Arrange
-        monkeypatch.setenv(_MODES, "stytch")
-
-        # Act / Assert
-        assert AuthSettings().stytch_enabled() is False
-
-    def test_case_and_space_tolerant_on_ee(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """The stytch token parses with the same tolerance as the other modes."""
-        # Arrange
-        monkeypatch.setenv(_MODES, " Stytch ")
-        monkeypatch.setenv(_EDITION, "ee")
-
-        # Act / Assert
-        assert AuthSettings().modes() == {AuthMode.STYTCH}
-
-
-class TestStytchConfig:
-    """``LAVS_STYTCH_*`` accessors (project id, secret, public token)."""
-
-    def test_unset_values_are_none(self) -> None:
-        """With nothing configured every Stytch accessor returns None."""
-        # Arrange
-        settings = AuthSettings()
-
-        # Act / Assert
-        assert settings.stytch_project_id() is None
-        assert settings.stytch_secret() is None
-        assert settings.stytch_public_token() is None
-
-    def test_reads_env_values(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Each accessor reads (and trims) its environment variable on demand."""
-        # Arrange
-        monkeypatch.setenv(_STYTCH_PROJECT_ID, " project-test-123 ")
-        monkeypatch.setenv(_STYTCH_SECRET, "secret-test-456")
-        monkeypatch.setenv(_STYTCH_PUBLIC_TOKEN, "public-token-789")
-
-        # Act
-        settings = AuthSettings()
-
-        # Assert
-        assert settings.stytch_project_id() == "project-test-123"
-        assert settings.stytch_secret() == "secret-test-456"
-        assert settings.stytch_public_token() == "public-token-789"
-
-    def test_blank_env_values_are_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """A whitespace-only env value counts as unconfigured."""
-        # Arrange
-        monkeypatch.setenv(_STYTCH_PROJECT_ID, "   ")
-        monkeypatch.setenv(_STYTCH_SECRET, "")
-
-        # Act / Assert
-        assert AuthSettings().stytch_project_id() is None
-        assert AuthSettings().stytch_secret() is None
-
-    def test_injected_values_override_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Constructor-injected values win over the environment entirely."""
-        # Arrange
-        monkeypatch.setenv(_STYTCH_PROJECT_ID, "env-project")
-        settings = AuthSettings(stytch_project_id="injected-project")
-
-        # Act / Assert
-        assert settings.stytch_project_id() == "injected-project"

@@ -8,7 +8,7 @@ from app.auth.principal import Principal
 
 
 class AuthProvider(ABC):
-    """One authentication mechanism (API key, password/session, Stytch, ...).
+    """One authentication mechanism (API key, password/session, ...).
 
     A provider inspects the incoming request and returns a
     :class:`~app.auth.principal.Principal` when it recognises the credential, or

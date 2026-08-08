@@ -2,9 +2,9 @@
 
 ``docs/design/API_CONTRACT.md`` §1–2 defines exactly two ways a request can
 carry credentials: the ``lavs_session`` HttpOnly browser cookie (minted by
-``POST /auth/login``, or by ``POST /auth/stytch/callback`` in the EE edition —
-Stytch is not a separate scheme) and the headless ``X-API-Key`` header. This
-customizer declares both under ``components.securitySchemes`` and marks a
+``POST /auth/login``; an out-of-core edition may mint the same cookie through
+its own flow, which is not a separate scheme) and the headless ``X-API-Key``
+header. This customizer declares both under ``components.securitySchemes`` and marks a
 ``security`` requirement on exactly the operations guarded by
 :func:`~app.auth.require_principal.require_principal` — discovered by
 inspecting each route's dependency tree, so the document stays honest as
@@ -81,10 +81,9 @@ class OpenApiCustomizer:
                 "name": SessionCookie.NAME,
                 "description": (
                     "HttpOnly browser session cookie set by `POST /auth/login`. "
-                    "In the EE edition the same cookie is issued by "
-                    "`POST /auth/stytch/callback` after the Stytch session JWT "
-                    "is verified — the rest of the API is identical regardless "
-                    "of how the principal was obtained."
+                    "An out-of-core edition may issue the same cookie through "
+                    "its own login flow — the rest of the API is identical "
+                    "regardless of how the principal was obtained."
                 ),
             },
         }

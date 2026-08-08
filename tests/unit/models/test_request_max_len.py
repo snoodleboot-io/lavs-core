@@ -2,8 +2,7 @@
 
 Each cap is exercised at the boundary: a value exactly at the cap validates,
 one character over raises ``ValidationError``. The caps are: names/labels 256,
-descriptions/notes 4096, email 320 (RFC ceiling), password 128, tokens 256,
-``stytch_token`` 4096.
+descriptions/notes 4096, email 320 (RFC ceiling), password 128, tokens 256.
 """
 
 import pytest
@@ -14,7 +13,6 @@ from app.models.requests.create_product_model import CreateProductModel
 from app.models.requests.create_version_model import CreateVersionModel
 from app.models.requests.cut_release_model import CutReleaseModel
 from app.models.requests.login_model import LoginModel
-from app.models.requests.stytch_callback_model import StytchCallbackModel
 from app.models.requests.verify_model import VerifyModel
 
 ULID = "01KW8WHA6STWW5N1VYRSHDTK1N"
@@ -113,7 +111,7 @@ class TestVersionCaps:
 
 
 class TestCredentialCaps:
-    """Login email 320, password 128; tokens 256; stytch_token 4096."""
+    """Login email 320, password 128; verification token 256."""
 
     def test_login_email_at_cap_is_accepted(self) -> None:
         """A 320-character email (RFC ceiling) validates on login."""
@@ -159,17 +157,3 @@ class TestCredentialCaps:
         # Act / Assert
         with pytest.raises(ValidationError):
             VerifyModel(token="t" * 257)
-
-    def test_stytch_token_at_cap_is_accepted(self) -> None:
-        """A 4096-character Stytch session JWT validates."""
-        # Act
-        model = StytchCallbackModel(stytch_token="j" * 4096)
-
-        # Assert
-        assert len(model.stytch_token) == 4096
-
-    def test_stytch_token_over_cap_is_rejected(self) -> None:
-        """A 4097-character Stytch token fails validation."""
-        # Act / Assert
-        with pytest.raises(ValidationError):
-            StytchCallbackModel(stytch_token="j" * 4097)

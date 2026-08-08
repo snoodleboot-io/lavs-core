@@ -1,8 +1,8 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useContext, useState, type FormEvent, type ReactElement, type ReactNode } from 'react';
 
 import { useAuth } from '@/features/auth';
 
-import { StytchLogin } from './stytch-login';
+import { ManagedSignInContext } from './managed-sign-in-context';
 import styles from './login-form.module.css';
 
 export interface LoginFormProps {
@@ -12,12 +12,15 @@ export interface LoginFormProps {
 
 /**
  * `/meta`-adaptive, a11y-complete login form. Renders the password form when the
- * deployment enables `password` (or before `/meta` resolves), the Stytch managed
- * sign-in widget when `stytch` is enabled (both side by side in mixed mode), and
- * otherwise explains the configured non-interactive auth mode (`apikey`).
+ * deployment enables `password` (or before `/meta` resolves), any managed sign-in
+ * component injected via {@link ManagedSignInContext} for an advertised auth mode
+ * (both side by side in mixed mode), and otherwise explains the configured
+ * non-interactive auth mode (`apikey`). OSS injects no managed renderers, so the slot
+ * renders nothing and the password / apikey / none behavior is unchanged.
  */
 export function LoginForm({ onSuccess }: LoginFormProps): ReactNode {
   const { meta, login } = useAuth();
+  const managedSignInRegistry = useContext(ManagedSignInContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +29,16 @@ export function LoginForm({ onSuccess }: LoginFormProps): ReactNode {
   // Before /meta resolves we optimistically offer the password form (the OSS default).
   const passwordEnabled = !meta || meta.auth_modes.includes('password');
   const apiKeyEnabled = meta?.auth_modes.includes('apikey') ?? false;
-  const stytchEnabled = meta?.auth_modes.includes('stytch') ?? false;
+
+  // Managed sign-in slot: render an injected component for every advertised auth mode
+  // that has a registered renderer. OSS registers none, so this is empty.
+  const managedSignIns: ReactElement[] = (meta?.auth_modes ?? [])
+    .map((mode): ReactElement | null => {
+      const Renderer = managedSignInRegistry[mode];
+      return Renderer ? <Renderer key={mode} onSuccess={onSuccess} /> : null;
+    })
+    .filter((node): node is ReactElement => node !== null);
+  const hasManaged = managedSignIns.length > 0;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -90,22 +102,26 @@ export function LoginForm({ onSuccess }: LoginFormProps): ReactNode {
       </form>
     );
 
-    if (!stytchEnabled) return passwordForm;
+    if (!hasManaged) return passwordForm;
 
-    // Mixed mode: both interactive paths in one layout, separated for clarity.
+    // Mixed mode: password plus every injected managed path, separated for clarity.
     return (
       <div className={styles.stack}>
         {passwordForm}
         <div className={styles.separator} role="separator" aria-orientation="horizontal">
           <span>or</span>
         </div>
-        <StytchLogin onSuccess={onSuccess} />
+        {managedSignIns}
       </div>
     );
   }
 
-  if (stytchEnabled) {
-    return <StytchLogin onSuccess={onSuccess} />;
+  if (hasManaged) {
+    return managedSignIns.length === 1 ? (
+      managedSignIns[0]
+    ) : (
+      <div className={styles.stack}>{managedSignIns}</div>
+    );
   }
 
   if (apiKeyEnabled) {

@@ -8,9 +8,6 @@ from fastapi import FastAPI, Request, Response
 from app.auth.auth_resolver_factory import AuthResolverFactory
 from app.auth.auth_settings import AuthSettings
 from app.auth.providers.password_session_provider import PasswordSessionProvider
-from app.auth.providers.stytch_provider import StytchProvider
-from app.auth.stytch.stytch_sdk_verifier import StytchSdkVerifier
-from app.auth.stytch.stytch_verifier import StytchVerifier
 from app.backends.backend_factory import BackendFactory
 from app.connections.db_session import DbSession
 from app.database.migration.flat_to_relational_migration import FlatToRelationalMigration
@@ -19,6 +16,8 @@ from app.events.event_bus import EventBus
 from app.mail.capture_mailer import CaptureMailer
 from app.openapi.app_metadata import AppMetadata
 from app.openapi.openapi_customizer import OpenApiCustomizer
+from app.plugins.plugin_context import MetaExtension, PluginContext
+from app.plugins.plugin_loader import load_plugins
 from app.routers import auth, components, events, meta, products, releases, timeline, versions
 from app.security.rate_limit_middleware import RateLimitMiddleware
 
@@ -49,6 +48,13 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     registry live, so a provider added after startup still takes effect. A
     :class:`~app.mail.capture_mailer.CaptureMailer` is exposed on
     ``application.state.mailer`` as the deterministic email sink.
+
+    Finally, once core wiring is complete, the plugin seam runs: any installed
+    ``lavs.plugins`` entry point is discovered and invoked with a
+    :class:`~app.plugins.plugin_context.PluginContext` so an out-of-core edition
+    can register providers, contribute ``/meta`` fields (via the shared
+    ``application.state.meta_extensions`` list), and mount routers. Core imports
+    no plugin code; with nothing installed the step is a clean no-op.
     """
     backend = BackendFactory().create()
     with backend.connect() as session:
@@ -59,24 +65,27 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         auth_registry = AuthResolverFactory.build_registry(auth_settings)
         if auth_settings.password_enabled():
             auth_registry.register(PasswordSessionProvider(edition=auth_settings.edition()))
-        stytch_verifier: StytchVerifier | None = None
-        if auth_settings.stytch_enabled():
-            stytch_verifier = StytchSdkVerifier(settings=auth_settings)
-            auth_registry.register(
-                StytchProvider(edition=auth_settings.edition(), verifier=stytch_verifier)
-            )
-            if not auth_settings.password_enabled():
-                # Stytch-only deployments still authenticate the lavs_session
-                # cookie minted by /auth/stytch/callback via the session
-                # provider; with password enabled it is already registered.
-                auth_registry.register(PasswordSessionProvider(edition=auth_settings.edition()))
-        application.state.stytch_verifier = stytch_verifier
         application.state.auth_settings = auth_settings
         application.state.auth_registry = auth_registry
         application.state.auth_resolver = AuthResolverFactory.build_resolver(
             auth_settings, registry=auth_registry
         )
+        meta_extensions: list[MetaExtension] = []
+        application.state.meta_extensions = meta_extensions
         application.state.mailer = CaptureMailer()
+
+        # Plugin seam: after core wiring is complete, discover any installed
+        # `lavs.plugins` entry points and let each extend the running app
+        # (register an AuthProvider, contribute /meta fields, mount routers).
+        # Core imports no plugin code — the loop no-ops when none is installed.
+        load_plugins(
+            PluginContext(
+                app=application,
+                auth_registry=auth_registry,
+                auth_settings=auth_settings,
+                meta_extensions=meta_extensions,
+            )
+        )
 
         logger.info("Managed %s session opened for application lifespan.", backend.name.value)
         backend.init_schema(session)
@@ -90,7 +99,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             application.state.auth_settings = None
             application.state.auth_registry = None
             application.state.auth_resolver = None
-            application.state.stytch_verifier = None
+            application.state.meta_extensions = None
             application.state.mailer = None
             logger.info("Managed database session closed for application lifespan.")
 

@@ -1,13 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, type ReactNode } from 'react';
 
-import {
-  getMe,
-  getMeta,
-  login as loginRequest,
-  logout as logoutRequest,
-  stytchCallback,
-} from '@/api';
+import { getMe, getMeta, login as loginRequest, logout as logoutRequest } from '@/api';
 import type { Credentials } from '@/api';
 import { queryKeys, unwrap } from '@/lib';
 import { ApiError } from '@/types';
@@ -43,18 +37,6 @@ export function AuthProvider({ children }: { readonly children: ReactNode }): Re
     [loginMutation],
   );
 
-  const stytchMutation = useMutation({
-    mutationFn: (stytchToken: string) => stytchCallback(stytchToken),
-    onSuccess: (result) => {
-      if (result.ok) queryClient.setQueryData(queryKeys.me, result.value);
-    },
-  });
-
-  const completeStytchLogin = useCallback(
-    (stytchToken: string) => stytchMutation.mutateAsync(stytchToken),
-    [stytchMutation],
-  );
-
   const logout = useCallback(async (): Promise<void> => {
     await logoutRequest();
     queryClient.setQueryData(queryKeys.me, null);
@@ -76,19 +58,9 @@ export function AuthProvider({ children }: { readonly children: ReactNode }): Re
       // A non-401 error still resolves to unauthenticated for gating purposes.
       status: meQuery.isError && !isUnauthorized ? 'unauthenticated' : status,
       login,
-      completeStytchLogin,
       logout,
     }),
-    [
-      meQuery.data,
-      meQuery.isError,
-      metaQuery.data,
-      isUnauthorized,
-      status,
-      login,
-      completeStytchLogin,
-      logout,
-    ],
+    [meQuery.data, meQuery.isError, metaQuery.data, isUnauthorized, status, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

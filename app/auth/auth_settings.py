@@ -21,13 +21,9 @@ class AuthSettings:
     _ALLOWED_DOMAINS_ENV_VAR: str = "LAVS_ALLOWED_EMAIL_DOMAINS"
     _SESSION_TTL_ENV_VAR: str = "LAVS_SESSION_TTL_SECONDS"
     _EDITION_ENV_VAR: str = "LAVS_EDITION"
-    _STYTCH_PROJECT_ID_ENV_VAR: str = "LAVS_STYTCH_PROJECT_ID"
-    _STYTCH_SECRET_ENV_VAR: str = "LAVS_STYTCH_SECRET"
-    _STYTCH_PUBLIC_TOKEN_ENV_VAR: str = "LAVS_STYTCH_PUBLIC_TOKEN"
 
     _DEFAULT_SESSION_TTL_SECONDS: int = 604800
     _DEFAULT_EDITION: str = "oss"
-    _EE_EDITION: str = "ee"
 
     def __init__(
         self,
@@ -35,9 +31,6 @@ class AuthSettings:
         allowed_email_domains: tuple[str, ...] | None = None,
         session_ttl_seconds: int | None = None,
         edition: str | None = None,
-        stytch_project_id: str | None = None,
-        stytch_secret: str | None = None,
-        stytch_public_token: str | None = None,
     ) -> None:
         """Initialise the settings.
 
@@ -51,18 +44,11 @@ class AuthSettings:
                 tuple means "allow all").
             session_ttl_seconds: Session lifetime in seconds.
             edition: The deployment edition label.
-            stytch_project_id: The Stytch project id (EE).
-            stytch_secret: The Stytch project secret (EE; never logged).
-            stytch_public_token: The Stytch publishable public token (EE; safe
-                to surface to browsers via ``/meta``).
         """
         self._modes = modes
         self._allowed_email_domains = allowed_email_domains
         self._session_ttl_seconds = session_ttl_seconds
         self._edition = edition
-        self._stytch_project_id = stytch_project_id
-        self._stytch_secret = stytch_secret
-        self._stytch_public_token = stytch_public_token
 
     @staticmethod
     def _split_csv(raw: str) -> list[str]:
@@ -73,10 +59,8 @@ class AuthSettings:
         """Return the set of enabled authentication modes.
 
         Unrecognised tokens are ignored so a forward-compatible config never
-        crashes the foundation. The ``stytch`` token is edition-gated: it is
-        honoured only when :meth:`edition` is ``ee`` and stays ignored on an
-        OSS deployment — exactly the pre-EE behaviour (managed identity is an
-        EE capability; a stray ``stytch`` token cannot enable it on OSS).
+        crashes the foundation — a mode an out-of-core edition understands but
+        this build does not is simply dropped rather than being fatal.
         """
         if self._modes is not None:
             return set(self._modes)
@@ -88,8 +72,6 @@ class AuthSettings:
             lowered = token.lower()
             if lowered in valid_values:
                 recognised.add(AuthMode(lowered))
-        if AuthMode.STYTCH in recognised and self.edition() != self._EE_EDITION:
-            recognised.discard(AuthMode.STYTCH)
         return recognised
 
     def allowed_email_domains(self) -> tuple[str, ...]:
@@ -131,41 +113,3 @@ class AuthSettings:
     def apikey_mode_enabled(self) -> bool:
         """Return ``True`` when the ``apikey`` mode is explicitly enabled."""
         return AuthMode.APIKEY in self.modes()
-
-    def stytch_enabled(self) -> bool:
-        """Return ``True`` when the ``stytch`` mode is enabled (EE only)."""
-        return AuthMode.STYTCH in self.modes()
-
-    @staticmethod
-    def _optional_env(name: str) -> str | None:
-        """Return a trimmed env value, or ``None`` when unset or blank."""
-        raw = os.environ.get(name)
-        if raw is None or not raw.strip():
-            return None
-        return raw.strip()
-
-    def stytch_project_id(self) -> str | None:
-        """Return the Stytch project id, or ``None`` when unconfigured."""
-        if self._stytch_project_id is not None:
-            return self._stytch_project_id
-        return self._optional_env(self._STYTCH_PROJECT_ID_ENV_VAR)
-
-    def stytch_secret(self) -> str | None:
-        """Return the Stytch project secret, or ``None`` when unconfigured.
-
-        Read on demand and never logged — it is handed only to the Stytch SDK
-        client construction.
-        """
-        if self._stytch_secret is not None:
-            return self._stytch_secret
-        return self._optional_env(self._STYTCH_SECRET_ENV_VAR)
-
-    def stytch_public_token(self) -> str | None:
-        """Return the publishable Stytch public token, or ``None`` when unset.
-
-        This is the browser-safe publishable token surfaced through ``/meta``
-        (never the secret).
-        """
-        if self._stytch_public_token is not None:
-            return self._stytch_public_token
-        return self._optional_env(self._STYTCH_PUBLIC_TOKEN_ENV_VAR)
