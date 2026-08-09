@@ -1,0 +1,25 @@
+# Keep the build context minimal: only pyproject.toml, uv.lock, README.md and app/
+# are COPY'd, but the whole context is still sent to the daemon.
+.git
+.venv
+node_modules
+frontend
+tests
+docs
+dist
+build
+coverage
+htmlcov
+.coverage
+.pytest_cache
+.ruff_cache
+**/__pycache__
+**/*.pyc
+# Local DuckDB files must never ship inside the image (app/test.db lives in the app package dir)
+**/*.db
+**/*.db.wal
+**/*.duckdb
+.claude
+.github
+helm
+scratch

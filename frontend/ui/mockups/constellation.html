@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LAVS · Constellation (mockup)</title>
+<!--
+  LAVS UI mockup — "Constellation"
+  Self-contained, no dependencies. Open directly in a browser.
+  Concept: docs/design/UI_CONCEPT.md
+    - Each component is a horizontal STREAM, each version a STAR/STATION.
+    - The MERIDIAN (bright vertical line) is a candidate release: it pins the
+      latest star at-or-before it on every stream and derives a product version.
+      The pinned stars connect into a CONSTELLATION — the shape of the release.
+    - Drag the meridian (or ←/→), then "Cut Release" (or press C) to snapshot it.
+  This is a fidelity mockup of interaction + look, not production code.
+-->
+<style>
+  :root{
+    --bg:#05070d; --bg2:#0a0f1c; --ink:#e9eefb; --muted:#7c89a6; --line:#1c2740;
+    --panel:rgba(18,25,43,.66); --panel-brd:rgba(120,150,210,.16);
+    --meridian:#ffd36b; --meridian-glow:rgba(255,211,107,.55);
+    --good:#7CFFB0;
+    --api:#5ad1ff; --ui:#b78cff; --helm:#7CFFB0; --cli:#ffd166;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:
+      radial-gradient(1200px 700px at 78% -10%, #16213f55, transparent 60%),
+      radial-gradient(900px 600px at 0% 110%, #1a123a55, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+    overflow:hidden;
+  }
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  #stars{position:fixed;inset:0;pointer-events:none;z-index:0}
+  .star{position:absolute;width:2px;height:2px;border-radius:50%;background:#cdd9ff;opacity:.5;animation:tw 4s ease-in-out infinite}
+  @keyframes tw{0%,100%{opacity:.18}50%{opacity:.7}}
+
+  .app{position:relative;z-index:1;display:grid;grid-template-rows:auto 1fr auto;height:100vh;padding:18px 20px;gap:14px}
+
+  /* header */
+  header{display:flex;align-items:center;gap:16px}
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand b{font-size:18px;letter-spacing:.5px}
+  .brand .tag{color:var(--muted);font-size:12px;letter-spacing:3px;text-transform:uppercase}
+  .product{margin-left:6px;display:flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--panel-brd);
+    border-radius:999px;background:var(--panel)}
+  .product .dot{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 12px var(--good)}
+  .spacer{flex:1}
+  .kbd{color:var(--muted);font-size:12px}
+  .kbd b{color:var(--ink);background:#121a2e;border:1px solid var(--line);border-radius:6px;padding:1px 7px;margin:0 2px;font-weight:600}
+
+  /* main grid */
+  .main{display:grid;grid-template-columns:1fr 290px;gap:14px;min-height:0}
+  .canvas-wrap{position:relative;border:1px solid var(--panel-brd);border-radius:16px;background:
+    linear-gradient(180deg,rgba(13,19,34,.7),rgba(7,11,20,.7));overflow:hidden}
+  svg{display:block;width:100%;height:100%;touch-action:none}
+  .hint{position:absolute;left:16px;bottom:12px;color:var(--muted);font-size:12px;pointer-events:none}
+
+  /* HUD panel */
+  .hud{display:flex;flex-direction:column;gap:12px;min-height:0}
+  .card{border:1px solid var(--panel-brd);border-radius:16px;background:var(--panel);
+    backdrop-filter:blur(6px);padding:14px}
+  .card h3{margin:0 0 10px;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .merid-readout{display:flex;align-items:baseline;justify-content:space-between}
+  .merid-readout .t{font-size:13px;color:var(--muted)}
+  .pv{font-size:34px;font-weight:700;letter-spacing:.5px;color:var(--meridian);
+    text-shadow:0 0 24px var(--meridian-glow);line-height:1.1}
+  .pv small{display:block;font-size:11px;letter-spacing:2px;color:var(--muted);
+    text-transform:uppercase;text-shadow:none;margin-bottom:4px;font-weight:600}
+  .manifest{display:flex;flex-direction:column;gap:7px}
+  .row{display:flex;align-items:center;gap:9px;font-size:13px}
+  .row .sw{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .row .nm{color:var(--ink)}
+  .row .vv{margin-left:auto;color:var(--ink);font-weight:600}
+  .row.none .vv{color:var(--muted);font-weight:400}
+  .cut{margin-top:2px;width:100%;border:1px solid var(--meridian);color:#1a1402;font-weight:700;
+    letter-spacing:.5px;background:linear-gradient(180deg,#ffe49a,#ffce5e);border-radius:11px;
+    padding:11px;cursor:pointer;transition:transform .08s ease, box-shadow .2s}
+  .cut:hover{box-shadow:0 0 26px var(--meridian-glow);transform:translateY(-1px)}
+  .cut:active{transform:translateY(0)}
+
+  /* ledger */
+  footer{border:1px solid var(--panel-brd);border-radius:16px;background:var(--panel);padding:12px 14px}
+  .ledger-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .ledger-head h3{margin:0;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted)}
+  .ledger{display:flex;gap:10px;overflow-x:auto;padding-bottom:2px}
+  .rel{flex:0 0 auto;display:flex;flex-direction:column;gap:3px;border:1px solid var(--line);
+    border-radius:11px;padding:9px 12px;background:#0c1322;cursor:pointer;min-width:150px;
+    transition:border-color .2s, transform .12s}
+  .rel:hover{border-color:var(--meridian);transform:translateY(-2px)}
+  .rel .nm{font-weight:700}
+  .rel .mf{color:var(--muted);font-size:11px}
+  .rel .pvv{color:var(--meridian);font-weight:700;font-size:13px}
+  .empty{color:var(--muted);font-size:13px;padding:4px 2px}
+
+  @media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+<div id="stars"></div>
+<div class="app">
+  <header>
+    <div class="brand"><b>LAVS</b><span class="tag">Constellation</span></div>
+    <div class="product"><span class="dot"></span><span>Aurora&nbsp;Platform</span>
+      <span class="mono" style="color:var(--muted)">· 4 components</span></div>
+    <div class="spacer"></div>
+    <div class="kbd"><b>←</b><b>→</b> scrub &nbsp; <b>C</b> cut release &nbsp; drag the meridian</div>
+  </header>
+
+  <div class="main">
+    <div class="canvas-wrap">
+      <svg id="stage" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="hint">Time flows left → right · the right edge is <b>now</b>. The bright line is a release you haven't cut yet.</div>
+    </div>
+
+    <div class="hud">
+      <div class="card">
+        <div class="merid-readout"><h3 style="margin:0">Release Meridian</h3><span class="t mono" id="tick">t = 13</span></div>
+        <div class="pv" style="margin-top:10px"><small>Derived product version</small><span id="pv">5.0.0</span></div>
+      </div>
+      <div class="card" style="flex:1;min-height:0;overflow:auto">
+        <h3>Pinned manifest</h3>
+        <div class="manifest" id="manifest"></div>
+        <button class="cut" id="cutBtn" style="margin-top:14px">⟡ Cut Release</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="ledger-head"><h3>Release Ledger</h3><span class="mono" style="color:var(--muted);font-size:12px" id="ledgerCount">0 releases</span></div>
+    <div class="ledger" id="ledger"><span class="empty">No releases cut yet — drag the meridian and press <b style="color:var(--ink)">C</b>.</span></div>
+  </footer>
+</div>
+
+<script>
+const SVGNS="http://www.w3.org/2000/svg";
+const TICKS=13;                         // ordinal time 0..13 ("now")
+const COMPONENTS=[
+  {id:"api", name:"lavs-api",  color:"var(--api)",  hex:"#5ad1ff", versions:[
+    {t:1,v:"2.0.0"},{t:3,v:"2.1.0"},{t:5,v:"2.2.0"},{t:8,v:"2.3.0"},{t:11,v:"2.4.0"}]},
+  {id:"ui",  name:"lavs-ui",   color:"var(--ui)",   hex:"#b78cff", versions:[
+    {t:2,v:"1.7.0"},{t:4,v:"1.8.0"},{t:7,v:"1.9.0"},{t:9,v:"1.9.1"},{t:12,v:"1.9.2"}]},
+  {id:"helm",name:"lavs-helm", color:"var(--helm)", hex:"#7CFFB0", versions:[
+    {t:1,v:"0.4.0"},{t:6,v:"0.5.0"},{t:10,v:"0.7.0"}]},
+  {id:"cli", name:"lavs-cli",  color:"var(--cli)",  hex:"#ffd166", versions:[
+    {t:3,v:"1.0.0"},{t:8,v:"1.1.0"}]},
+];
+
+// product version auto-assigned per cut (README example starts "5.0")
+let productMajor=5, productMinor=0;
+let meridianTick=TICKS;                 // current meridian position (continuous)
+const releases=[];
+
+// geometry (viewBox space)
+const VBW=900, VBH=460, PADL=120, PADR=70, PADT=46, PADB=46;
+const laneTop=PADT+18, laneH=(VBH-laneTop-PADB)/COMPONENTS.length;
+const xOf=t=>PADL+(t/TICKS)*(VBW-PADL-PADR);
+const tOfX=x=>Math.max(0,Math.min(TICKS,((x-PADL)/(VBW-PADL-PADR))*TICKS));
+const yOf=i=>laneTop+laneH*i+laneH*0.5;
+
+const stage=document.getElementById("stage");
+stage.setAttribute("viewBox",`0 0 ${VBW} ${VBH}`);
+
+// ---- static defs (glow filters) ----
+const defs=document.createElementNS(SVGNS,"defs");
+defs.innerHTML=`
+  <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="4.5" result="b"/><feMerge>
+    <feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="mglow" x="-200%" y="-60%" width="500%" height="220%">
+    <feGaussianBlur stdDeviation="7" result="b"/><feMerge>
+    <feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+stage.appendChild(defs);
+
+const gGrid=mk("g"), gStreams=mk("g"), gConst=mk("g"), gMerid=mk("g");
+stage.append(gGrid,gStreams,gConst,gMerid);
+
+function mk(t,attrs){const e=document.createElementNS(SVGNS,t);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+
+// ---- grid + lane labels (drawn once) ----
+(function grid(){
+  for(let t=0;t<=TICKS;t++){
+    const x=xOf(t);
+    gGrid.appendChild(mk("line",{x1:x,y1:laneTop-10,x2:x,y2:VBH-PADB,
+      stroke:"#10182b",opacity:t%1?0:0.9}));
+  }
+  // "now" marker at right edge
+  const nx=xOf(TICKS);
+  gGrid.appendChild(mk("line",{x1:nx,y1:laneTop-12,x2:nx,y2:VBH-PADB,stroke:"#243456","stroke-dasharray":"2 5"}));
+  const now=mk("text",{x:nx,y:laneTop-18,fill:"#48597d","font-size":11,"text-anchor":"middle"});now.textContent="now";gGrid.appendChild(now);
+  COMPONENTS.forEach((c,i)=>{
+    const y=yOf(i);
+    gGrid.appendChild(mk("line",{x1:PADL,y1:y,x2:VBW-PADR,y2:y,stroke:"#0f1830"}));
+    const lab=mk("text",{x:PADL-16,y:y+4,fill:c.hex,"font-size":13,"text-anchor":"end","font-weight":600});
+    lab.textContent=c.name;gGrid.appendChild(lab);
+    const sw=mk("circle",{cx:PADL-104,cy:y-4,r:4,fill:c.hex});gGrid.appendChild(sw);
+  });
+})();
+
+// ---- streams + stations (drawn once; stations restyled on update) ----
+const stationEls={};   // id -> array of {el, label, data}
+COMPONENTS.forEach((c,i)=>{
+  const y=yOf(i);
+  const first=xOf(c.versions[0].t), last=xOf(c.versions[c.versions.length-1].t);
+  gStreams.appendChild(mk("line",{x1:first,y1:y,x2:last,y2:y,stroke:c.hex,opacity:.32,"stroke-width":2.5,"stroke-linecap":"round"}));
+  stationEls[c.id]=c.versions.map(ver=>{
+    const x=xOf(ver.t);
+    const el=mk("circle",{cx:x,cy:y,r:5.5,fill:"#0a1120",stroke:c.hex,"stroke-width":2,style:"cursor:pointer"});
+    const lab=mk("text",{x:x,y:y-13,fill:"#9fb0d6","font-size":10,"text-anchor":"middle","font-family":"ui-monospace,Menlo,monospace"});
+    lab.textContent=ver.v;
+    el.addEventListener("pointerenter",()=>el.setAttribute("r",7.5));
+    el.addEventListener("pointerleave",()=>render());
+    gStreams.append(el,lab);
+    return {el,lab,x,y,ver,comp:c};
+  });
+});
+
+// ---- meridian (draggable) ----
+const mLine=mk("line",{stroke:"var(--meridian)","stroke-width":2.5,filter:"url(#mglow)"});
+const mHandle=mk("polygon",{fill:"var(--meridian)",filter:"url(#mglow)",style:"cursor:ew-resize"});
+const mHit=mk("rect",{y:0,width:26,height:VBH,fill:"transparent",style:"cursor:ew-resize"});
+gMerid.append(mLine,mHandle,mHit);
+
+function pinnedFor(c,tick){
+  let best=null;
+  for(const ver of c.versions){ if(ver.t<=tick && (!best||ver.t>best.t)) best=ver; }
+  return best;
+}
+
+function render(){
+  const tick=Math.floor(meridianTick+1e-6);
+  const x=xOf(meridianTick);
+  mLine.setAttribute("x1",x);mLine.setAttribute("y1",laneTop-12);
+  mLine.setAttribute("x2",x);mLine.setAttribute("y2",VBH-PADB);
+  mHandle.setAttribute("points",`${x-7},${laneTop-20} ${x+7},${laneTop-20} ${x},${laneTop-8}`);
+  mHit.setAttribute("x",x-13);
+
+  // constellation: line connecting pinned stations
+  gConst.innerHTML="";
+  const manifest=document.getElementById("manifest");manifest.innerHTML="";
+  let pinnedCount=0;
+
+  COMPONENTS.forEach((c,i)=>{
+    const pin=pinnedFor(c,tick);
+    stationEls[c.id].forEach(s=>{
+      const isPin=pin&&s.ver===pin;
+      const passed=s.ver.t<=tick;
+      s.el.setAttribute("r",isPin?8:5.5);
+      s.el.setAttribute("fill",isPin?c.hex:(passed?"#0a1120":"#0a1120"));
+      s.el.setAttribute("opacity",passed?1:0.35);
+      s.el.setAttribute("filter",isPin?"url(#glow)":"");
+      s.lab.setAttribute("opacity",passed?(isPin?1:.6):.25);
+      s.lab.setAttribute("fill",isPin?c.hex:"#9fb0d6");
+    });
+    // connector from pinned station to meridian
+    if(pin){
+      const px=xOf(pin.t), py=yOf(i);
+      gConst.appendChild(mk("line",{x1:px,y1:py,x2:x,y2:py,stroke:c.hex,opacity:.5,"stroke-width":1.5,"stroke-dasharray":"1 4"}));
+      gConst.appendChild(mk("circle",{cx:x,cy:py,r:3,fill:c.hex,filter:"url(#glow)"}));
+      pinnedCount++;
+    }
+    // HUD row
+    const row=document.createElement("div");row.className="row"+(pin?"":" none");
+    row.innerHTML=`<span class="sw" style="background:${c.hex}"></span>
+      <span class="nm">${c.name}</span>
+      <span class="vv mono">${pin?pin.v:"—"}</span>`;
+    manifest.appendChild(row);
+  });
+
+  document.getElementById("tick").textContent=`t = ${tick}`;
+  document.getElementById("pv").textContent=`${productMajor}.${productMinor}.0`;
+  document.getElementById("cutBtn").disabled=pinnedCount===0;
+  document.getElementById("cutBtn").style.opacity=pinnedCount===0?.4:1;
+}
+
+// ---- dragging ----
+let dragging=false;
+function moveToClientX(clientX){
+  const r=stage.getBoundingClientRect();
+  const vx=((clientX-r.left)/r.width)*VBW;
+  meridianTick=Math.round(tOfX(vx)*2)/2;   // half-tick snap for smoothness
+  render();
+}
+function startDrag(e){dragging=true;stage.setPointerCapture?.(e.pointerId);moveToClientX(e.clientX);}
+stage.addEventListener("pointerdown",e=>{
+  // only start when grabbing near the meridian or its handle
+  const r=stage.getBoundingClientRect();
+  const vx=((e.clientX-r.left)/r.width)*VBW;
+  if(Math.abs(vx-xOf(meridianTick))<24 || e.target===mHit || e.target===mHandle) startDrag(e);
+});
+stage.addEventListener("pointermove",e=>{if(dragging)moveToClientX(e.clientX);});
+window.addEventListener("pointerup",()=>dragging=false);
+
+// ---- keyboard ----
+window.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight"){meridianTick=Math.min(TICKS,Math.floor(meridianTick)+1);render();e.preventDefault();}
+  else if(e.key==="ArrowLeft"){meridianTick=Math.max(0,Math.ceil(meridianTick)-1);render();e.preventDefault();}
+  else if(e.key.toLowerCase()==="c"){cutRelease();}
+});
+
+// ---- cut release ----
+const codenames=["Aurora","Borealis","Cinder","Drift","Ember","Flux","Garnet","Helios"];
+function cutRelease(){
+  const tick=Math.floor(meridianTick+1e-6);
+  const manifest=COMPONENTS.map(c=>({c,pin:pinnedFor(c,tick)})).filter(x=>x.pin);
+  if(!manifest.length)return;
+  const pv=`${productMajor}.${productMinor}.0`;
+  const name=`${codenames[releases.length%codenames.length]} ${pv}`;
+  releases.unshift({name,pv,tick,manifest:manifest.map(m=>`${m.c.id} ${m.pin.v}`)});
+  productMinor++;                          // next product version
+  flashMeridian();
+  renderLedger();
+  render();
+}
+function flashMeridian(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const x=xOf(meridianTick);
+  const burst=mk("circle",{cx:x,cy:VBH/2,r:6,fill:"none",stroke:"var(--meridian)","stroke-width":2});
+  gMerid.appendChild(burst);
+  let r=6,o=1;const id=setInterval(()=>{r+=14;o-=.12;burst.setAttribute("r",r);burst.setAttribute("opacity",o);
+    if(o<=0){clearInterval(id);burst.remove();}},16);
+}
+function renderLedger(){
+  const L=document.getElementById("ledger");
+  document.getElementById("ledgerCount").textContent=`${releases.length} release${releases.length===1?"":"s"}`;
+  if(!releases.length){L.innerHTML='<span class="empty">No releases cut yet.</span>';return;}
+  L.innerHTML="";
+  releases.forEach(r=>{
+    const el=document.createElement("div");el.className="rel";
+    el.innerHTML=`<span class="nm">${r.name.split(" ")[0]}</span>
+      <span class="pvv mono">v${r.pv}</span>
+      <span class="mf mono">${r.manifest.join(" · ")}</span>`;
+    el.title="Re-open this release (freeze meridian at t = "+r.tick+")";
+    el.addEventListener("click",()=>{meridianTick=r.tick;render();});
+    L.appendChild(el);
+  });
+}
+
+// ---- starfield ----
+(function stars(){
+  const box=document.getElementById("stars");let html="";
+  const pts=[[8,12],[19,30],[27,8],[35,52],[44,18],[52,70],[61,9],[68,40],[74,60],[81,22],[88,48],[93,14],
+             [12,64],[23,80],[33,72],[5,40],[58,28],[71,77],[84,68],[97,55],[16,46],[40,84],[64,55],[90,82]];
+  pts.forEach(([l,t],i)=>{html+=`<span class="star" style="left:${l}%;top:${t}%;animation-delay:${(i%7)*0.5}s"></span>`;});
+  box.innerHTML=html;
+})();
+
+document.getElementById("cutBtn").addEventListener("click",cutRelease);
+render();
+renderLedger();
+</script>
+</body>
+</html>

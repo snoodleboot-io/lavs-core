@@ -1,0 +1,91 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  font-size: 18px;
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+
+.sub {
+  color: var(--muted);
+  margin: 0;
+}
+
+.label {
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.input {
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.input:focus-visible {
+  border-color: var(--meridian);
+  outline: var(--focus-ring);
+}
+
+.error {
+  color: var(--danger);
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.submit {
+  margin-top: 16px;
+  border: 1px solid var(--meridian);
+  color: #1a1402;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: linear-gradient(180deg, #ffe49a, #ffce5e);
+  border-radius: var(--radius-sm);
+  padding: 11px;
+  cursor: pointer;
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Mixed-mode (password + managed sign-in) layout. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.separator::before,
+.separator::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--line);
+}

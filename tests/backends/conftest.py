@@ -1,0 +1,99 @@
+"""Fixtures for the PostgreSQL parity suite.
+
+These fixtures stand up a disposable real PostgreSQL and point the application's
+:class:`~app.backends.backend_factory.BackendFactory` at it, so the *identical*
+routers, queries, and models the DuckDB suite exercises run against real PG.
+
+* :func:`postgres_container` (session-scoped) starts one throwaway
+  ``postgres:17-alpine`` container for the whole run and tears it down at the
+  end. When Docker (or the image) is unavailable it ``pytest.skip``s with a clear
+  reason rather than passing silently.
+* :func:`pg_env` (function-scoped) resets the database to a pristine ``public``
+  schema and exports the ``LAVS_DB_BACKEND`` / ``LAVS_PG_*`` environment so each
+  test starts against a clean database and is independent — the application's
+  lifespan re-runs ``init_schema`` on that clean database.
+
+The container is shared for speed but every test gets a freshly emptied schema,
+satisfying the "fresh, independent, ``init_schema``-on-clean" requirement without
+paying a container start per test.
+"""
+
+from collections.abc import Iterator
+from typing import Any
+
+import psycopg
+import pytest
+
+#: The disposable PostgreSQL image the parity suite runs against.
+_PG_IMAGE = "postgres:17-alpine"
+#: The container-internal port PostgreSQL listens on.
+_PG_INTERNAL_PORT = 5432
+
+
+@pytest.fixture(scope="session")
+def postgres_container() -> Iterator[Any]:
+    """Start one disposable PostgreSQL container for the session, or skip.
+
+    Yields:
+        The running ``PostgresContainer``.
+    """
+    try:
+        from testcontainers.postgres import PostgresContainer
+    except ImportError as exc:  # pragma: no cover - dependency is declared
+        pytest.skip(f"testcontainers is not installed: {exc}")
+
+    try:
+        container = PostgresContainer(_PG_IMAGE)
+        container.start()
+    except Exception as exc:  # Docker daemon or image pull unavailable.
+        pytest.skip(
+            f"Docker/PostgreSQL testcontainer is unavailable (cannot start {_PG_IMAGE}): {exc}"
+        )
+
+    try:
+        yield container
+    finally:
+        container.stop()
+
+
+def _connection_kwargs(container: Any) -> dict[str, Any]:
+    """Return psycopg connection kwargs for the running container."""
+    return {
+        "host": container.get_container_host_ip(),
+        "port": int(container.get_exposed_port(_PG_INTERNAL_PORT)),
+        "dbname": container.dbname,
+        "user": container.username,
+        "password": container.password,
+    }
+
+
+def _reset_public_schema(container: Any) -> None:
+    """Drop and recreate the ``public`` schema so the next test sees a clean DB."""
+    with psycopg.connect(**_connection_kwargs(container)) as connection:
+        connection.autocommit = True
+        connection.execute("DROP SCHEMA public CASCADE")
+        connection.execute("CREATE SCHEMA public")
+
+
+@pytest.fixture()
+def pg_env(postgres_container: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
+    """Reset the database and select the Postgres backend for one test.
+
+    Args:
+        postgres_container: The session container (injected).
+        monkeypatch: Pytest's env patcher (auto-undone on teardown).
+
+    Yields:
+        The running container, for tests that need its connection parameters.
+    """
+    _reset_public_schema(postgres_container)
+
+    kwargs = _connection_kwargs(postgres_container)
+    monkeypatch.setenv("LAVS_DB_BACKEND", "postgres")
+    monkeypatch.setenv("LAVS_PG_HOST", str(kwargs["host"]))
+    monkeypatch.setenv("LAVS_PG_PORT", str(kwargs["port"]))
+    monkeypatch.setenv("LAVS_PG_DB", str(kwargs["dbname"]))
+    monkeypatch.setenv("LAVS_PG_USER", str(kwargs["user"]))
+    monkeypatch.setenv("LAVS_PG_PASSWORD", str(kwargs["password"]))
+
+    yield postgres_container
