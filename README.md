@@ -1,6 +1,6 @@
 # lavs - lowercase acronym versioning system
 
-Approaching its v1 cut. Runs today on DuckDB (local default) and PostgreSQL (production), with the identical API on both; MySQL and SQL Server (maybe MongoDB) are planned follow-ons.
+**v1.0** — the open-source edition. Runs on DuckDB (local default) and PostgreSQL (production), with the identical API on both; MySQL and SQL Server (maybe MongoDB) are planned follow-ons. The managed-identity Enterprise edition ships separately as a private overlay (`lavs-ee`) that plugs in through the `lavs.plugins` extension seam — this repository contains the OSS edition only.
 
 ## About
 
