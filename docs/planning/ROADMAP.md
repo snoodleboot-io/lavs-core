@@ -148,5 +148,5 @@ Delivered as **P7 — Release readiness** (the v1 exit checklist, packaged as a 
 
 ## 6. Open decisions / risks
 
-- **DuckDB concurrency** — single-writer; not suitable for multi-replica prod (hence Postgres). Validate the local connection model under concurrent requests.
+- **DuckDB concurrency** — single-writer; not suitable for multi-replica prod (hence Postgres). ✅ *Validated (2026-08):* under 64-way concurrent load the **async** resource API is safe (event-loop-serialized on the one shared connection — 200 concurrent writes, 0 errors, no corruption). The single shared `DuckDBPyConnection` is **not** thread-safe, so any **sync** handler touching it from the threadpool races the cursor (`InvalidInputException`); the `/ready` probe hit this (~2% spurious 503 at 64-way) and was fixed by making it `async`. Takeaway: keep all DB access on the event loop (async handlers); DuckDB stays single-process/dev-oriented, Postgres for concurrent/multi-replica prod.
 - **Migration** — moving off the flat `Versions` table is a breaking change (accepted); decide whether to provide a one-shot data migration or start fresh.

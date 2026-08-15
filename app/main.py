@@ -126,7 +126,7 @@ def root():
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
+async def health() -> dict[str, str]:
     """Liveness probe.
 
     Returns:
@@ -136,8 +136,15 @@ def health() -> dict[str, str]:
 
 
 @app.get("/ready")
-def ready(response: Response, request: Request) -> dict[str, str]:
+async def ready(response: Response, request: Request) -> dict[str, str]:
     """Readiness probe.
+
+    Declared ``async`` so its ``SELECT 1`` runs on the event loop, serialized
+    with every other coroutine's database access. A sync probe handler would
+    instead run in the threadpool and touch the single shared connection from a
+    separate thread — under concurrent probing that races the connection's
+    cursor state and raises ``InvalidInputException`` (a spurious 503). See
+    ``ROADMAP.md`` §6 (DuckDB single-writer).
 
     Verifies the managed database answers a trivial ``SELECT 1`` query.
 
