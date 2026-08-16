@@ -89,7 +89,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
         logger.info("Managed %s session opened for application lifespan.", backend.name.value)
         backend.init_schema(session)
-        FlatToRelationalMigration().run(session)
+        FlatToRelationalMigration(backend).run(session)
         logger.info("Schema initialised and migration applied.")
         try:
             yield

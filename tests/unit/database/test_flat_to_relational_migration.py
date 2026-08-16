@@ -9,6 +9,7 @@ from collections.abc import Iterator
 import pytest
 
 import app.configurations.configuration as config_module
+from app.backends.duckdb_backend import DuckDBBackend
 from app.connections.connection_factory import ConnectionFactory
 from app.database.database_manager import DatabaseManager
 from app.database.migration.flat_to_relational_migration import (
@@ -64,7 +65,7 @@ def _run_migration() -> None:
     """Init the relational schema and run the migration on one connection."""
     with ConnectionFactory().retrieve(key="duckdb") as conn:
         DatabaseManager.create_tables_on(conn)
-        FlatToRelationalMigration().run(conn)
+        FlatToRelationalMigration(DuckDBBackend()).run(conn)
 
 
 def _counts_and_statuses() -> tuple[int, int, int, list[str]]:
@@ -156,7 +157,7 @@ class TestMigrationIdempotency:
 
         # Act: run again on a fresh connection.
         with ConnectionFactory().retrieve(key="duckdb") as conn:
-            FlatToRelationalMigration().run(conn)
+            FlatToRelationalMigration(DuckDBBackend()).run(conn)
 
         # Assert
         products, components, versions, _statuses = _counts_and_statuses()
@@ -173,7 +174,7 @@ class TestMigrationNoOpWithoutLegacyTable:
             DatabaseManager.create_tables_on(conn)
 
             # Act
-            FlatToRelationalMigration().run(conn)
+            FlatToRelationalMigration(DuckDBBackend()).run(conn)
 
         # Assert
         products, components, versions, _statuses = _counts_and_statuses()
