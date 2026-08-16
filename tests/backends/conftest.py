@@ -18,8 +18,9 @@ satisfying the "fresh, independent, ``init_schema``-on-clean" requirement withou
 paying a container start per test.
 """
 
+import os
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, NoReturn
 
 import psycopg
 import pymysql
@@ -36,6 +37,27 @@ _MYSQL_IMAGE = "mysql:8.4"
 _MYSQL_INTERNAL_PORT = 3306
 
 
+def _containers_unavailable(reason: str) -> NoReturn:
+    """Skip when containers are unavailable locally, but **fail in CI**.
+
+    Multi-backend parity is the exit criterion for every non-DuckDB backend, so
+    it must actually execute in CI — a silently skipped parity suite there would
+    give a false green. GitHub Actions always sets ``CI``, so when it is set an
+    unavailable container is a hard failure; local dev without Docker still skips
+    gracefully.
+
+    Args:
+        reason: Why the container could not start.
+
+    Raises:
+        Failed: In CI (``CI`` set) — parity must not be skipped.
+        Skipped: Locally — Docker/the image is simply unavailable.
+    """
+    if os.environ.get("CI"):
+        pytest.fail(f"backend parity suite must run in CI but {reason}")
+    pytest.skip(reason)
+
+
 @pytest.fixture(scope="session")
 def postgres_container() -> Iterator[Any]:
     """Start one disposable PostgreSQL container for the session, or skip.
@@ -46,13 +68,13 @@ def postgres_container() -> Iterator[Any]:
     try:
         from testcontainers.postgres import PostgresContainer
     except ImportError as exc:  # pragma: no cover - dependency is declared
-        pytest.skip(f"testcontainers is not installed: {exc}")
+        _containers_unavailable(f"testcontainers is not installed: {exc}")
 
     try:
         container = PostgresContainer(_PG_IMAGE)
         container.start()
     except Exception as exc:  # Docker daemon or image pull unavailable.
-        pytest.skip(
+        _containers_unavailable(
             f"Docker/PostgreSQL testcontainer is unavailable (cannot start {_PG_IMAGE}): {exc}"
         )
 
@@ -115,13 +137,13 @@ def mysql_container() -> Iterator[Any]:
     try:
         from testcontainers.mysql import MySqlContainer
     except ImportError as exc:  # pragma: no cover - dependency is declared
-        pytest.skip(f"testcontainers is not installed: {exc}")
+        _containers_unavailable(f"testcontainers is not installed: {exc}")
 
     try:
         container = MySqlContainer(_MYSQL_IMAGE)
         container.start()
     except Exception as exc:  # Docker daemon or image pull unavailable.
-        pytest.skip(
+        _containers_unavailable(
             f"Docker/MySQL testcontainer is unavailable (cannot start {_MYSQL_IMAGE}): {exc}"
         )
 
