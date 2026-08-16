@@ -22,12 +22,18 @@ from collections.abc import Iterator
 from typing import Any
 
 import psycopg
+import pymysql
 import pytest
 
 #: The disposable PostgreSQL image the parity suite runs against.
 _PG_IMAGE = "postgres:17-alpine"
 #: The container-internal port PostgreSQL listens on.
 _PG_INTERNAL_PORT = 5432
+
+#: The disposable MySQL image the parity suite runs against.
+_MYSQL_IMAGE = "mysql:8.4"
+#: The container-internal port MySQL listens on.
+_MYSQL_INTERNAL_PORT = 3306
 
 
 @pytest.fixture(scope="session")
@@ -97,3 +103,89 @@ def pg_env(postgres_container: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator
     monkeypatch.setenv("LAVS_PG_PASSWORD", str(kwargs["password"]))
 
     yield postgres_container
+
+
+@pytest.fixture(scope="session")
+def mysql_container() -> Iterator[Any]:
+    """Start one disposable MySQL container for the session, or skip.
+
+    Yields:
+        The running ``MySqlContainer``.
+    """
+    try:
+        from testcontainers.mysql import MySqlContainer
+    except ImportError as exc:  # pragma: no cover - dependency is declared
+        pytest.skip(f"testcontainers is not installed: {exc}")
+
+    try:
+        container = MySqlContainer(_MYSQL_IMAGE)
+        container.start()
+    except Exception as exc:  # Docker daemon or image pull unavailable.
+        pytest.skip(
+            f"Docker/MySQL testcontainer is unavailable (cannot start {_MYSQL_IMAGE}): {exc}"
+        )
+
+    try:
+        yield container
+    finally:
+        container.stop()
+
+
+def _mysql_connection_kwargs(container: Any) -> dict[str, Any]:
+    """Return PyMySQL connection kwargs for the running container."""
+    return {
+        "host": container.get_container_host_ip(),
+        "port": int(container.get_exposed_port(_MYSQL_INTERNAL_PORT)),
+        "database": container.dbname,
+        "user": container.username,
+        "password": container.password,
+    }
+
+
+def _reset_mysql_database(container: Any) -> None:
+    """Drop every table in the database so the next test sees a clean schema.
+
+    MySQL scopes grants to a database, so dropping and recreating the database
+    would strip the app user's privileges; instead every table is dropped with
+    foreign-key checks disabled, leaving an empty schema the app re-materialises.
+    """
+    kwargs = _mysql_connection_kwargs(container)
+    connection = pymysql.connect(**kwargs)
+    try:
+        connection.autocommit(True)
+        cursor = connection.cursor()
+        cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
+        cursor.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = %s",
+            (kwargs["database"],),
+        )
+        tables = [row[0] for row in cursor.fetchall()]
+        for table in tables:
+            cursor.execute(f"DROP TABLE IF EXISTS `{table}`")
+        cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+    finally:
+        connection.close()
+
+
+@pytest.fixture()
+def mysql_env(mysql_container: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
+    """Reset the database and select the MySQL backend for one test.
+
+    Args:
+        mysql_container: The session container (injected).
+        monkeypatch: Pytest's env patcher (auto-undone on teardown).
+
+    Yields:
+        The running container, for tests that need its connection parameters.
+    """
+    _reset_mysql_database(mysql_container)
+
+    kwargs = _mysql_connection_kwargs(mysql_container)
+    monkeypatch.setenv("LAVS_DB_BACKEND", "mysql")
+    monkeypatch.setenv("LAVS_MYSQL_HOST", str(kwargs["host"]))
+    monkeypatch.setenv("LAVS_MYSQL_PORT", str(kwargs["port"]))
+    monkeypatch.setenv("LAVS_MYSQL_DB", str(kwargs["database"]))
+    monkeypatch.setenv("LAVS_MYSQL_USER", str(kwargs["user"]))
+    monkeypatch.setenv("LAVS_MYSQL_PASSWORD", str(kwargs["password"]))
+
+    yield mysql_container

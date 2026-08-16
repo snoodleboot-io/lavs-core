@@ -14,3 +14,5 @@ class BackendKind(StrEnum):
     DUCKDB = "duckdb"
     #: Networked, concurrent — the production target (implemented by the R1 lane).
     POSTGRES = "postgres"
+    #: Networked, concurrent — the MySQL/InnoDB target (PyMySQL driver).
+    MYSQL = "mysql"
