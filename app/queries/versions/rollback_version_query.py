@@ -20,13 +20,19 @@ _SELECT_BY_ID = (
 )
 # The "previous version" is the highest-semver row of the same component that is
 # strictly below the target, is not already rolled back, and is not the target.
+# The semver "strictly below" predicate is written as the expanded lexicographic
+# comparison rather than a row-value comparison ``(major, minor, patch) < (?, ?,
+# ?)``: the row-value form is a PostgreSQL/MySQL/DuckDB extension that SQL Server
+# rejects, whereas the expanded OR form is standard SQL every backend accepts.
 _SELECT_PREVIOUS = (
     "SELECT id, component_id, major, minor, patch, prerelease, status, created_at "
     "FROM versions "
     "WHERE component_id = ? "
     "AND id <> ? "
     "AND status <> ? "
-    "AND (major, minor, patch) < (?, ?, ?) "
+    "AND (major < ? "
+    "OR (major = ? AND minor < ?) "
+    "OR (major = ? AND minor = ? AND patch < ?)) "
     "ORDER BY major DESC, minor DESC, patch DESC "
     "LIMIT 1"
 )
@@ -85,6 +91,9 @@ class RollbackVersionQuery(Query[VersionResponseModel]):
                 target.component_id,
                 target.id,
                 VersionStatus.ROLLED_BACK.value,
+                target.major,
+                target.major,
+                target.minor,
                 target.major,
                 target.minor,
                 target.patch,

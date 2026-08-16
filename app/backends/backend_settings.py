@@ -18,7 +18,7 @@ from app.backends.backend_kind import BackendKind
 
 
 class BackendSettings:
-    """Typed accessors over the ``LAVS_DB_*`` / ``LAVS_PG_*`` / ``LAVS_MYSQL_*`` environment."""
+    """Typed accessors over the ``LAVS_DB_*`` / ``LAVS_PG_*`` / ``LAVS_MYSQL_*`` / ``LAVS_MSSQL_*`` environment."""
 
     _BACKEND_ENV_VAR: str = "LAVS_DB_BACKEND"
 
@@ -36,11 +36,20 @@ class BackendSettings:
     _MYSQL_USER_ENV_VAR: str = "LAVS_MYSQL_USER"
     _MYSQL_PASSWORD_ENV_VAR: str = "LAVS_MYSQL_PASSWORD"
 
+    _MSSQL_DSN_ENV_VAR: str = "LAVS_MSSQL_DSN"
+    _MSSQL_HOST_ENV_VAR: str = "LAVS_MSSQL_HOST"
+    _MSSQL_PORT_ENV_VAR: str = "LAVS_MSSQL_PORT"
+    _MSSQL_DB_ENV_VAR: str = "LAVS_MSSQL_DB"
+    _MSSQL_USER_ENV_VAR: str = "LAVS_MSSQL_USER"
+    _MSSQL_PASSWORD_ENV_VAR: str = "LAVS_MSSQL_PASSWORD"
+
     _DEFAULT_BACKEND: BackendKind = BackendKind.DUCKDB
     _DEFAULT_PG_HOST: str = "localhost"
     _DEFAULT_PG_PORT: int = 5432
     _DEFAULT_MYSQL_HOST: str = "localhost"
     _DEFAULT_MYSQL_PORT: int = 3306
+    _DEFAULT_MSSQL_HOST: str = "localhost"
+    _DEFAULT_MSSQL_PORT: int = 1433
 
     def __init__(
         self,
@@ -57,6 +66,12 @@ class BackendSettings:
         mysql_db: str | None = None,
         mysql_user: str | None = None,
         mysql_password: str | None = None,
+        mssql_dsn: str | None = None,
+        mssql_host: str | None = None,
+        mssql_port: int | None = None,
+        mssql_db: str | None = None,
+        mssql_user: str | None = None,
+        mssql_password: str | None = None,
     ) -> None:
         """Initialise the settings.
 
@@ -77,6 +92,12 @@ class BackendSettings:
             mysql_db: The MySQL database name.
             mysql_user: The MySQL user.
             mysql_password: The MySQL password.
+            mssql_dsn: A full SQL Server DSN; when set it supersedes the discrete fields.
+            mssql_host: The SQL Server host.
+            mssql_port: The SQL Server port.
+            mssql_db: The SQL Server database name.
+            mssql_user: The SQL Server user.
+            mssql_password: The SQL Server password.
         """
         self._backend = backend
         self._pg_dsn = pg_dsn
@@ -91,6 +112,12 @@ class BackendSettings:
         self._mysql_db = mysql_db
         self._mysql_user = mysql_user
         self._mysql_password = mysql_password
+        self._mssql_dsn = mssql_dsn
+        self._mssql_host = mssql_host
+        self._mssql_port = mssql_port
+        self._mssql_db = mssql_db
+        self._mssql_user = mssql_user
+        self._mssql_password = mssql_password
 
     def backend(self) -> BackendKind:
         """Return the selected backend kind (defaults to DuckDB).
@@ -202,4 +229,51 @@ class BackendSettings:
         if self._mysql_password is not None:
             return self._mysql_password
         raw = os.environ.get(self._MYSQL_PASSWORD_ENV_VAR)
+        return raw if raw and raw.strip() else None
+
+    def mssql_dsn(self) -> str | None:
+        """Return the full SQL Server DSN when configured, else ``None``.
+
+        When present this is preferred over the discrete host/port/db fields.
+        """
+        if self._mssql_dsn is not None:
+            return self._mssql_dsn
+        raw = os.environ.get(self._MSSQL_DSN_ENV_VAR)
+        return raw if raw and raw.strip() else None
+
+    def mssql_host(self) -> str:
+        """Return the SQL Server host (defaults to ``localhost``)."""
+        if self._mssql_host is not None:
+            return self._mssql_host
+        raw = os.environ.get(self._MSSQL_HOST_ENV_VAR)
+        return raw.strip() if raw and raw.strip() else self._DEFAULT_MSSQL_HOST
+
+    def mssql_port(self) -> int:
+        """Return the SQL Server port (defaults to ``1433``)."""
+        if self._mssql_port is not None:
+            return self._mssql_port
+        raw = os.environ.get(self._MSSQL_PORT_ENV_VAR)
+        if raw is None or not raw.strip():
+            return self._DEFAULT_MSSQL_PORT
+        return int(raw)
+
+    def mssql_db(self) -> str | None:
+        """Return the SQL Server database name when configured, else ``None``."""
+        if self._mssql_db is not None:
+            return self._mssql_db
+        raw = os.environ.get(self._MSSQL_DB_ENV_VAR)
+        return raw.strip() if raw and raw.strip() else None
+
+    def mssql_user(self) -> str | None:
+        """Return the SQL Server user when configured, else ``None``."""
+        if self._mssql_user is not None:
+            return self._mssql_user
+        raw = os.environ.get(self._MSSQL_USER_ENV_VAR)
+        return raw.strip() if raw and raw.strip() else None
+
+    def mssql_password(self) -> str | None:
+        """Return the SQL Server password when configured, else ``None``."""
+        if self._mssql_password is not None:
+            return self._mssql_password
+        raw = os.environ.get(self._MSSQL_PASSWORD_ENV_VAR)
         return raw if raw and raw.strip() else None
