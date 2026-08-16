@@ -14,8 +14,13 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to the repo root on purpose. These come from the stock Python
+# packaging template, where they mean distutils build output at the top level.
+# Left unanchored, `lib/` matches at *any* depth — which silently swallowed the
+# UI's own source directory, `frontend/ui/src/lib/`, keeping 7 committed-nowhere
+# files out of the repo entirely.
+/lib/
+/lib64/
 parts/
 sdist/
 var/
