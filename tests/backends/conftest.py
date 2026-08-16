@@ -23,6 +23,7 @@ from collections.abc import Iterator
 from typing import Any, NoReturn
 
 import psycopg
+import pymssql
 import pymysql
 import pytest
 
@@ -35,6 +36,11 @@ _PG_INTERNAL_PORT = 5432
 _MYSQL_IMAGE = "mysql:8.4"
 #: The container-internal port MySQL listens on.
 _MYSQL_INTERNAL_PORT = 3306
+
+#: The disposable SQL Server image the parity suite runs against.
+_MSSQL_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest"
+#: The container-internal port SQL Server listens on.
+_MSSQL_INTERNAL_PORT = 1433
 
 
 def _containers_unavailable(reason: str) -> NoReturn:
@@ -211,3 +217,90 @@ def mysql_env(mysql_container: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator
     monkeypatch.setenv("LAVS_MYSQL_PASSWORD", str(kwargs["password"]))
 
     yield mysql_container
+
+
+@pytest.fixture(scope="session")
+def mssql_container() -> Iterator[Any]:
+    """Start one disposable SQL Server container for the session, or skip.
+
+    Yields:
+        The running ``SqlServerContainer``.
+    """
+    try:
+        from testcontainers.mssql import SqlServerContainer
+    except ImportError as exc:  # pragma: no cover - dependency is declared
+        _containers_unavailable(f"testcontainers is not installed: {exc}")
+
+    try:
+        container = SqlServerContainer(_MSSQL_IMAGE)
+        container.start()
+    except Exception as exc:  # Docker daemon or image pull unavailable.
+        _containers_unavailable(
+            f"Docker/SQL Server testcontainer is unavailable (cannot start {_MSSQL_IMAGE}): {exc}"
+        )
+
+    try:
+        yield container
+    finally:
+        container.stop()
+
+
+def _mssql_connection_kwargs(container: Any) -> dict[str, Any]:
+    """Return pymssql connection kwargs for the running container."""
+    return {
+        "server": container.get_container_host_ip(),
+        "port": int(container.get_exposed_port(_MSSQL_INTERNAL_PORT)),
+        "database": container.dbname,
+        "user": container.username,
+        "password": container.password,
+    }
+
+
+def _reset_mssql_database(container: Any) -> None:
+    """Drop every user table so the next test sees a clean schema.
+
+    SQL Server refuses to drop a table another table's foreign key references, so
+    every foreign key is dropped first, then every user table — leaving an empty
+    schema the app re-materialises via ``init_schema``.
+    """
+    kwargs = _mssql_connection_kwargs(container)
+    connection = pymssql.connect(autocommit=True, **kwargs)
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT OBJECT_SCHEMA_NAME(parent_object_id), "
+            "OBJECT_NAME(parent_object_id), name FROM sys.foreign_keys"
+        )
+        foreign_keys = cursor.fetchall()
+        for schema, table, name in foreign_keys:
+            cursor.execute(f"ALTER TABLE [{schema}].[{table}] DROP CONSTRAINT [{name}]")
+        cursor.execute("SELECT OBJECT_SCHEMA_NAME(object_id), name FROM sys.tables")
+        tables = cursor.fetchall()
+        for schema, table in tables:
+            cursor.execute(f"DROP TABLE [{schema}].[{table}]")
+    finally:
+        connection.close()
+
+
+@pytest.fixture()
+def mssql_env(mssql_container: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
+    """Reset the database and select the SQL Server backend for one test.
+
+    Args:
+        mssql_container: The session container (injected).
+        monkeypatch: Pytest's env patcher (auto-undone on teardown).
+
+    Yields:
+        The running container, for tests that need its connection parameters.
+    """
+    _reset_mssql_database(mssql_container)
+
+    kwargs = _mssql_connection_kwargs(mssql_container)
+    monkeypatch.setenv("LAVS_DB_BACKEND", "mssql")
+    monkeypatch.setenv("LAVS_MSSQL_HOST", str(kwargs["server"]))
+    monkeypatch.setenv("LAVS_MSSQL_PORT", str(kwargs["port"]))
+    monkeypatch.setenv("LAVS_MSSQL_DB", str(kwargs["database"]))
+    monkeypatch.setenv("LAVS_MSSQL_USER", str(kwargs["user"]))
+    monkeypatch.setenv("LAVS_MSSQL_PASSWORD", str(kwargs["password"]))
+
+    yield mssql_container

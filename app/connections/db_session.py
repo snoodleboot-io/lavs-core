@@ -17,12 +17,18 @@ from typing import Any
 
 from app.connections.db_result import DbResult
 from app.connections.param_style import ParamStyle
+from app.connections.statement_dialect import StatementDialect
 
 
 class DbSession:
     """A backend-agnostic session over a raw driver connection."""
 
-    def __init__(self, connection: Any, param_style: ParamStyle) -> None:
+    def __init__(
+        self,
+        connection: Any,
+        param_style: ParamStyle,
+        statement_dialect: StatementDialect = StatementDialect.ANSI,
+    ) -> None:
         """Wrap a live driver connection with its placeholder style.
 
         Args:
@@ -30,9 +36,14 @@ class DbSession:
                 ``psycopg.Connection``) whose ``execute`` returns a fetchable
                 handle.
             param_style: The placeholder style the underlying driver expects.
+            statement_dialect: The whole-statement SQL shape the engine speaks.
+                Defaults to :attr:`StatementDialect.ANSI` (native ``LIMIT``), so
+                DuckDB, PostgreSQL, and MySQL sessions are unaffected; SQL Server
+                passes :attr:`StatementDialect.TSQL` to rewrite ``LIMIT``.
         """
         self._connection = connection
         self._param_style = param_style
+        self._statement_dialect = statement_dialect
 
     @property
     def param_style(self) -> ParamStyle:
@@ -63,7 +74,7 @@ class DbSession:
         Returns:
             A :class:`DbResult` over the executed statement.
         """
-        rendered = self._param_style.render(sql)
+        rendered = self._param_style.render(self._statement_dialect.render(sql))
         if params is None:
             cursor = self._connection.execute(rendered)
         else:

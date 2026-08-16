@@ -16,3 +16,5 @@ class BackendKind(StrEnum):
     POSTGRES = "postgres"
     #: Networked, concurrent — the MySQL/InnoDB target (PyMySQL driver).
     MYSQL = "mysql"
+    #: Networked, concurrent — the SQL Server target (pymssql driver).
+    MSSQL = "mssql"

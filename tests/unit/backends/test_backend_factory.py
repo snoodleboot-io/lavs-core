@@ -58,6 +58,18 @@ class TestBackendFactorySelection:
         # Assert
         assert isinstance(backend, MySqlBackend)
 
+    def test_mssql_is_registered(self) -> None:
+        # Arrange: the SQL Server lane self-registers on import of app.backends.
+        from app.backends.mssql_backend import MssqlBackend
+
+        settings = BackendSettings(backend=BackendKind.MSSQL)
+
+        # Act
+        backend = BackendFactory(settings).create()
+
+        # Assert
+        assert isinstance(backend, MssqlBackend)
+
     def test_unregistered_backend_raises(self, preserved_registry: None) -> None:
         # Arrange: drop the Postgres builder so its kind has no registered builder.
         BackendFactory._registry.pop(BackendKind.POSTGRES, None)

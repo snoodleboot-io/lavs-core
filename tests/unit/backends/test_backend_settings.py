@@ -30,6 +30,13 @@ class TestBackendSelection:
         # Act / Assert
         assert BackendSettings().backend() is BackendKind.MYSQL
 
+    def test_env_selects_mssql(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Arrange
+        monkeypatch.setenv("LAVS_DB_BACKEND", "mssql")
+
+        # Act / Assert
+        assert BackendSettings().backend() is BackendKind.MSSQL
+
     def test_env_is_case_insensitive(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Arrange
         monkeypatch.setenv("LAVS_DB_BACKEND", "  PostgreS  ")
@@ -168,3 +175,68 @@ class TestMySqlAccessors:
         # Assert
         assert settings.mysql_host() == "arg-host"
         assert settings.mysql_port() == 2222
+
+
+class TestMssqlAccessors:
+    """The SQL Server connection accessors read env with sensible defaults."""
+
+    def test_discrete_fields_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Arrange
+        monkeypatch.setenv("LAVS_MSSQL_HOST", "db.internal")
+        monkeypatch.setenv("LAVS_MSSQL_PORT", "14330")
+        monkeypatch.setenv("LAVS_MSSQL_DB", "lavs")
+        monkeypatch.setenv("LAVS_MSSQL_USER", "svc")
+        monkeypatch.setenv("LAVS_MSSQL_PASSWORD", "secret")
+        monkeypatch.delenv("LAVS_MSSQL_DSN", raising=False)
+
+        # Act
+        settings = BackendSettings()
+
+        # Assert
+        assert settings.mssql_host() == "db.internal"
+        assert settings.mssql_port() == 14330
+        assert settings.mssql_db() == "lavs"
+        assert settings.mssql_user() == "svc"
+        assert settings.mssql_password() == "secret"
+        assert settings.mssql_dsn() is None
+
+    def test_defaults_when_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Arrange
+        for key in (
+            "LAVS_MSSQL_DSN",
+            "LAVS_MSSQL_HOST",
+            "LAVS_MSSQL_PORT",
+            "LAVS_MSSQL_DB",
+            "LAVS_MSSQL_USER",
+            "LAVS_MSSQL_PASSWORD",
+        ):
+            monkeypatch.delenv(key, raising=False)
+
+        # Act
+        settings = BackendSettings()
+
+        # Assert
+        assert settings.mssql_host() == "localhost"
+        assert settings.mssql_port() == 1433
+        assert settings.mssql_db() is None
+        assert settings.mssql_user() is None
+        assert settings.mssql_password() is None
+
+    def test_dsn_is_read_when_present(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Arrange
+        monkeypatch.setenv("LAVS_MSSQL_DSN", "mssql://svc:secret@db/lavs")
+
+        # Act / Assert
+        assert BackendSettings().mssql_dsn() == "mssql://svc:secret@db/lavs"
+
+    def test_constructor_override_wins_over_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Arrange
+        monkeypatch.setenv("LAVS_MSSQL_HOST", "env-host")
+        monkeypatch.setenv("LAVS_MSSQL_PORT", "1111")
+
+        # Act
+        settings = BackendSettings(mssql_host="arg-host", mssql_port=2222)
+
+        # Assert
+        assert settings.mssql_host() == "arg-host"
+        assert settings.mssql_port() == 2222
