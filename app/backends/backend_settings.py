@@ -18,7 +18,7 @@ from app.backends.backend_kind import BackendKind
 
 
 class BackendSettings:
-    """Typed accessors over the ``LAVS_DB_*`` / ``LAVS_PG_*`` environment."""
+    """Typed accessors over the ``LAVS_DB_*`` / ``LAVS_PG_*`` / ``LAVS_MYSQL_*`` environment."""
 
     _BACKEND_ENV_VAR: str = "LAVS_DB_BACKEND"
 
@@ -29,9 +29,18 @@ class BackendSettings:
     _PG_USER_ENV_VAR: str = "LAVS_PG_USER"
     _PG_PASSWORD_ENV_VAR: str = "LAVS_PG_PASSWORD"
 
+    _MYSQL_DSN_ENV_VAR: str = "LAVS_MYSQL_DSN"
+    _MYSQL_HOST_ENV_VAR: str = "LAVS_MYSQL_HOST"
+    _MYSQL_PORT_ENV_VAR: str = "LAVS_MYSQL_PORT"
+    _MYSQL_DB_ENV_VAR: str = "LAVS_MYSQL_DB"
+    _MYSQL_USER_ENV_VAR: str = "LAVS_MYSQL_USER"
+    _MYSQL_PASSWORD_ENV_VAR: str = "LAVS_MYSQL_PASSWORD"
+
     _DEFAULT_BACKEND: BackendKind = BackendKind.DUCKDB
     _DEFAULT_PG_HOST: str = "localhost"
     _DEFAULT_PG_PORT: int = 5432
+    _DEFAULT_MYSQL_HOST: str = "localhost"
+    _DEFAULT_MYSQL_PORT: int = 3306
 
     def __init__(
         self,
@@ -42,6 +51,12 @@ class BackendSettings:
         pg_db: str | None = None,
         pg_user: str | None = None,
         pg_password: str | None = None,
+        mysql_dsn: str | None = None,
+        mysql_host: str | None = None,
+        mysql_port: int | None = None,
+        mysql_db: str | None = None,
+        mysql_user: str | None = None,
+        mysql_password: str | None = None,
     ) -> None:
         """Initialise the settings.
 
@@ -56,6 +71,12 @@ class BackendSettings:
             pg_db: The Postgres database name.
             pg_user: The Postgres user.
             pg_password: The Postgres password.
+            mysql_dsn: A full MySQL DSN; when set it supersedes the discrete fields.
+            mysql_host: The MySQL host.
+            mysql_port: The MySQL port.
+            mysql_db: The MySQL database name.
+            mysql_user: The MySQL user.
+            mysql_password: The MySQL password.
         """
         self._backend = backend
         self._pg_dsn = pg_dsn
@@ -64,6 +85,12 @@ class BackendSettings:
         self._pg_db = pg_db
         self._pg_user = pg_user
         self._pg_password = pg_password
+        self._mysql_dsn = mysql_dsn
+        self._mysql_host = mysql_host
+        self._mysql_port = mysql_port
+        self._mysql_db = mysql_db
+        self._mysql_user = mysql_user
+        self._mysql_password = mysql_password
 
     def backend(self) -> BackendKind:
         """Return the selected backend kind (defaults to DuckDB).
@@ -128,4 +155,51 @@ class BackendSettings:
         if self._pg_password is not None:
             return self._pg_password
         raw = os.environ.get(self._PG_PASSWORD_ENV_VAR)
+        return raw if raw and raw.strip() else None
+
+    def mysql_dsn(self) -> str | None:
+        """Return the full MySQL DSN when configured, else ``None``.
+
+        When present this is preferred over the discrete host/port/db fields.
+        """
+        if self._mysql_dsn is not None:
+            return self._mysql_dsn
+        raw = os.environ.get(self._MYSQL_DSN_ENV_VAR)
+        return raw if raw and raw.strip() else None
+
+    def mysql_host(self) -> str:
+        """Return the MySQL host (defaults to ``localhost``)."""
+        if self._mysql_host is not None:
+            return self._mysql_host
+        raw = os.environ.get(self._MYSQL_HOST_ENV_VAR)
+        return raw.strip() if raw and raw.strip() else self._DEFAULT_MYSQL_HOST
+
+    def mysql_port(self) -> int:
+        """Return the MySQL port (defaults to ``3306``)."""
+        if self._mysql_port is not None:
+            return self._mysql_port
+        raw = os.environ.get(self._MYSQL_PORT_ENV_VAR)
+        if raw is None or not raw.strip():
+            return self._DEFAULT_MYSQL_PORT
+        return int(raw)
+
+    def mysql_db(self) -> str | None:
+        """Return the MySQL database name when configured, else ``None``."""
+        if self._mysql_db is not None:
+            return self._mysql_db
+        raw = os.environ.get(self._MYSQL_DB_ENV_VAR)
+        return raw.strip() if raw and raw.strip() else None
+
+    def mysql_user(self) -> str | None:
+        """Return the MySQL user when configured, else ``None``."""
+        if self._mysql_user is not None:
+            return self._mysql_user
+        raw = os.environ.get(self._MYSQL_USER_ENV_VAR)
+        return raw.strip() if raw and raw.strip() else None
+
+    def mysql_password(self) -> str | None:
+        """Return the MySQL password when configured, else ``None``."""
+        if self._mysql_password is not None:
+            return self._mysql_password
+        raw = os.environ.get(self._MYSQL_PASSWORD_ENV_VAR)
         return raw if raw and raw.strip() else None

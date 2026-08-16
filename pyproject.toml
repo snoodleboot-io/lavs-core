@@ -13,6 +13,7 @@ dependencies = [
     "fastapi>=0.135.1",
     "psycopg[binary]>=3.3.4",
     "pydantic>=2.12.5",
+    "pymysql>=1.1.1",
     "python-ulid>=3.1.0",
     "pyyaml>=6.0.0",
     "uvicorn>=0.40.0",
@@ -81,6 +82,7 @@ markers = [
     "security: marks tests as security tests",
     "unit: marks tests as unit tests",
     "postgres: parity tests that run the app against a real PostgreSQL testcontainer (requires Docker)",
+    "mysql: parity tests that run the app against a real MySQL testcontainer (requires Docker)",
 ]
 
 [tool.coverage.run]
