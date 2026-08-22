@@ -55,9 +55,7 @@ jobs:
     # entirely ungated: 25 test files never run, and a change that breaks the
     # build or the types still lands on a green CI.
     #
-    # `pnpm format:check` is deliberately absent — it currently fails on 6 files,
-    # so wiring it here would either redden the gate or force a formatting-churn
-    # commit. Playwright e2e (`pnpm e2e`) is likewise out: it needs browser
+    # Playwright e2e (`pnpm e2e`) is deliberately absent: it needs browser
     # downloads and a live server, so it belongs in its own job, not the PR gate.
 
     steps:
@@ -79,6 +77,9 @@ jobs:
       - name: Lint with eslint
         working-directory: frontend/ui
         run: pnpm lint
+      - name: Check formatting with prettier
+        working-directory: frontend/ui
+        run: pnpm format:check
       - name: Run unit tests with vitest
         working-directory: frontend/ui
         run: pnpm test
