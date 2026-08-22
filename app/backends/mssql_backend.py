@@ -17,6 +17,9 @@ lanes:
   cursor ``execute`` runs one batch at a time. Each SQL Server ``CREATE TABLE``
   is guarded by ``IF OBJECT_ID(...) IS NULL`` (T-SQL has no
   ``CREATE TABLE IF NOT EXISTS``), so re-running the schema is a no-op.
+
+One further override is specific to this lane: :meth:`rename_table`, because T-SQL
+has no ``ALTER TABLE ... RENAME TO`` and renames objects through ``sp_rename``.
 """
 
 import contextlib
@@ -101,6 +104,21 @@ class MssqlBackend(Backend):
         """
         for statement in DdlScript(self.dialect_ddl()).statements():
             session.execute(statement)
+
+    def rename_table(self, session: DbSession, old_name: str, new_name: str) -> None:
+        """Rename a table through ``sp_rename``.
+
+        T-SQL has no ``ALTER TABLE ... RENAME TO``; SQL Server renames objects via
+        the ``sp_rename`` system stored procedure, which takes the names as string
+        *values* rather than identifiers — so unlike the base implementation both
+        are passed as bound parameters.
+
+        Args:
+            session: A live session to run the rename on.
+            old_name: The existing table name.
+            new_name: The name to rename it to.
+        """
+        session.execute("EXEC sp_rename ?, ?", (old_name, new_name))
 
     def dialect_ddl(self) -> str:
         """Return the SQL Server DDL script contents."""

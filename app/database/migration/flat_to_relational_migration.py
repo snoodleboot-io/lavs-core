@@ -1,5 +1,6 @@
 """Idempotent migration from the legacy flat ``Versions`` table to the relational schema."""
 
+from app.backends.backend import Backend
 from app.connections.db_session import DbSession
 from app.database.database_manager import DatabaseManager
 from app.database.migration.legacy_schema import LegacySchema
@@ -31,8 +32,8 @@ class FlatToRelationalMigration:
 
     * It only acts when a legacy-shaped table (one carrying a ``product_name``
       column) exists with rows **and** the relational ``products`` table is
-      empty. Otherwise it is a no-op — so a fresh DuckDB *or* a fresh Postgres
-      database is left untouched.
+      empty. Otherwise it is a no-op — so a fresh database on *any* supported
+      backend (DuckDB, PostgreSQL, MySQL, SQL Server) is left untouched.
     * One :class:`product` is created per distinct ``product_name``; one
       synthetic ``default`` service :class:`component` per product; and one
       :class:`version` per legacy row, preserving ``major``/``minor``/``patch``
@@ -44,7 +45,20 @@ class FlatToRelationalMigration:
     All data values are written through bound parameters; only schema
     identifiers (table/column names) are interpolated, and those come from the
     :class:`LegacySchema` named constants.
+
+    The one statement whose syntax is not portable — renaming the legacy table
+    out of the way — is delegated to :meth:`Backend.rename_table` rather than
+    written here, because T-SQL has no ``ALTER TABLE ... RENAME TO``.
     """
+
+    def __init__(self, backend: Backend) -> None:
+        """Initialise the migration.
+
+        Args:
+            backend: The backend owning the session, used for the one operation
+                whose syntax differs per dialect (the archive rename).
+        """
+        self._backend = backend
 
     def run(self, session: DbSession) -> None:
         """Run the migration against a live session.
@@ -61,8 +75,11 @@ class FlatToRelationalMigration:
         # Re-create the relational ``versions`` table now that the colliding
         # legacy name has been archived (``products``/``components`` already
         # exist from schema init; this fills in the freed ``versions`` slot).
-        # Run on the same managed session — DuckDB allows only one writer.
-        DatabaseManager.create_tables_on(session)
+        # Run on the same managed session — DuckDB allows only one writer — and
+        # through the backend, so each dialect materialises its *own* schema.
+        # Schema init is guarded (``IF NOT EXISTS`` / ``IF OBJECT_ID``), so
+        # re-running it over the existing tables is a no-op.
+        self._backend.init_schema(session)
         self._insert_relational(session, legacy_rows)
 
     def _table_columns(self, session: DbSession, table: str) -> list[str]:
@@ -146,12 +163,14 @@ class FlatToRelationalMigration:
         table preserves its rows while letting the relational schema own the
         canonical name.
 
+        The rename goes through :meth:`Backend.rename_table` because the syntax
+        is dialect-specific — SQL Server has no ``ALTER TABLE ... RENAME TO`` and
+        renames through ``sp_rename`` instead.
+
         Args:
             session: The live session.
         """
-        session.execute(
-            f"ALTER TABLE {LegacySchema.SOURCE_TABLE} RENAME TO {LegacySchema.ARCHIVE_TABLE}"
-        )
+        self._backend.rename_table(session, LegacySchema.SOURCE_TABLE, LegacySchema.ARCHIVE_TABLE)
 
     def _insert_relational(
         self,

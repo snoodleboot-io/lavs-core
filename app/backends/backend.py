@@ -6,7 +6,8 @@ operations:
 * :meth:`connect` — open a driver connection and yield it wrapped in a uniform
   :class:`~app.connections.db_session.DbSession`, closing it on exit;
 * :meth:`init_schema` — materialise the dialect's schema on a session;
-* :meth:`dialect_ddl` — the dialect-specific DDL the schema is built from.
+* :meth:`dialect_ddl` — the dialect-specific DDL the schema is built from;
+* :meth:`rename_table` — rename a table in the dialect's own syntax.
 
 Adding a new backend (for example the R1 ``PostgresBackend``) means subclassing
 this and supplying :attr:`name`, :attr:`param_style`, :meth:`connect`, and
@@ -66,3 +67,20 @@ class Backend(ABC):
             session: A live session to run the DDL on.
         """
         session.execute(self.dialect_ddl())
+
+    def rename_table(self, session: DbSession, old_name: str, new_name: str) -> None:
+        """Rename a table, in the dialect the backend speaks.
+
+        The default emits ``ALTER TABLE <old> RENAME TO <new>``, which DuckDB,
+        PostgreSQL and MySQL 8 all accept. T-SQL has no such form, so
+        :class:`~app.backends.mssql_backend.MssqlBackend` overrides this.
+
+        Both names are interpolated as schema identifiers rather than bound, so
+        callers must pass trusted constants — never user input.
+
+        Args:
+            session: A live session to run the rename on.
+            old_name: The existing table name.
+            new_name: The name to rename it to.
+        """
+        session.execute(f"ALTER TABLE {old_name} RENAME TO {new_name}")
