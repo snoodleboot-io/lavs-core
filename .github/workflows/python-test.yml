@@ -49,6 +49,43 @@ jobs:
         shell: bash
         run: uv export --format requirements-txt --no-dev --no-emit-project | uvx pip-audit -r /dev/stdin --strict
 
+  frontend-test:
+    runs-on: ubuntu-latest
+    # Blocking gate for the Constellation UI. Without this the frontend is
+    # entirely ungated: 25 test files never run, and a change that breaks the
+    # build or the types still lands on a green CI.
+    #
+    # `pnpm format:check` is deliberately absent — it currently fails on 6 files,
+    # so wiring it here would either redden the gate or force a formatting-churn
+    # commit. Playwright e2e (`pnpm e2e`) is likewise out: it needs browser
+    # downloads and a live server, so it belongs in its own job, not the PR gate.
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/ui/pnpm-lock.yaml
+      - name: Install dependencies
+        working-directory: frontend/ui
+        run: pnpm install --frozen-lockfile
+      - name: Type-check with tsc
+        working-directory: frontend/ui
+        run: pnpm typecheck
+      - name: Lint with eslint
+        working-directory: frontend/ui
+        run: pnpm lint
+      - name: Run unit tests with vitest
+        working-directory: frontend/ui
+        run: pnpm test
+      - name: Build the production bundle
+        working-directory: frontend/ui
+        run: pnpm build
+
   frontend-audit:
     runs-on: ubuntu-latest
 
