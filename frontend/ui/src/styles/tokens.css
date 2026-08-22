@@ -31,8 +31,8 @@
   --hue-cli: #ffd166;
 
   /* type */
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
-    sans-serif;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* rhythm */
@@ -56,8 +56,7 @@ body {
   margin: 0;
   background:
     radial-gradient(1200px 700px at 78% -10%, #16213f55, transparent 60%),
-    radial-gradient(900px 600px at 0% 110%, #1a123a55, transparent 55%),
-    var(--bg);
+    radial-gradient(900px 600px at 0% 110%, #1a123a55, transparent 55%), var(--bg);
   color: var(--ink);
   font: 14px/1.5 var(--font-sans);
 }

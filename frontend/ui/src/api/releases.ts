@@ -19,7 +19,10 @@ export function getRelease(releaseId: string, signal?: AbortSignal): Promise<Res
 }
 
 /** Cut a release: snapshots each component's active version; server assigns the version. */
-export function cutRelease(productId: string, input: CutReleaseInput = {}): Promise<Result<Release>> {
+export function cutRelease(
+  productId: string,
+  input: CutReleaseInput = {},
+): Promise<Result<Release>> {
   const { idempotencyKey, ...body } = input;
   return http.post<Release>(`/products/${productId}/releases`, body, { idempotencyKey });
 }
