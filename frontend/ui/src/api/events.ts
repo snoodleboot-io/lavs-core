@@ -42,7 +42,8 @@ export function subscribeToProductEvents(
   const url = `${API_BASE}/products/${productId}/events`;
   const maxBackoff = options.maxBackoffMs ?? 30_000;
   const factory =
-    options.eventSourceFactory ?? ((target: string) => new EventSource(target, { withCredentials: true }));
+    options.eventSourceFactory ??
+    ((target: string) => new EventSource(target, { withCredentials: true }));
 
   let source: EventSource | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;

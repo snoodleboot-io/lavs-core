@@ -87,15 +87,11 @@ describe('LoginForm', () => {
 
   it('renders an injected managed sign-in for a managed-only deployment', async () => {
     server.use(
-      http.get('*/api/meta', () =>
-        HttpResponse.json({ edition: 'ee', auth_modes: ['managed'] }),
-      ),
+      http.get('*/api/meta', () => HttpResponse.json({ edition: 'ee', auth_modes: ['managed'] })),
     );
     renderLoginForm({ managed: FakeManagedSignIn });
 
-    await waitFor(() =>
-      expect(screen.getByTestId('fake-managed-widget')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('fake-managed-widget')).toBeInTheDocument());
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
   });
 
@@ -128,9 +124,7 @@ describe('LoginForm', () => {
 
   it('ignores managed modes with no registered renderer (OSS injects nothing)', async () => {
     server.use(
-      http.get('*/api/meta', () =>
-        HttpResponse.json({ edition: 'ee', auth_modes: ['managed'] }),
-      ),
+      http.get('*/api/meta', () => HttpResponse.json({ edition: 'ee', auth_modes: ['managed'] })),
     );
     // Empty registry: the advertised managed mode has no renderer, so we fall through
     // to the "no interactive auth mode" notice — no crash, no leaked widget.

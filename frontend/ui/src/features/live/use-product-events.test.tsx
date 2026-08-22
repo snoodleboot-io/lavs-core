@@ -56,11 +56,10 @@ describe('useProductEvents', () => {
     vi.useRealTimers();
   });
 
-  const factory = (): ((url: string) => EventSource) =>
-    ((url: string) => {
-      fake = new FakeEventSource(url);
-      return fake as unknown as EventSource;
-    });
+  const factory = (): ((url: string) => EventSource) => (url: string) => {
+    fake = new FakeEventSource(url);
+    return fake as unknown as EventSource;
+  };
 
   it('is a no-op when productId is undefined', () => {
     const eventSourceFactory = vi.fn(() => fake as unknown as EventSource);
